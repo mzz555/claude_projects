@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-gamepad"></i> Snake Game</h1>
+            <p class="subtitle">Classic arcade game in modern design</p>
+        </header>
+
+        <main>
+            <div class="game-area">
+                <div class="game-header">
+                    <div class="score-board">
+                        <div class="score-item">
+                            <i class="fas fa-star"></i>
+                            <span>Score: <span id="score">0</span></span>
+                        </div>
+                        <div class="score-item">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>Speed: <span id="speed">5</span></span>
+                        </div>
+                        <div class="score-item">
+                            <i class="fas fa-apple-alt"></i>
+                            <span>Food Eaten: <span id="foodCount">0</span></span>
+                        </div>
+                        <div class="score-item">
+                            <i class="fas fa-ruler"></i>
+                            <span>Length: <span id="length">3</span></span>
+                        </div>
+                    </div>
+                    <div class="controls">
+                        <button id="startBtn" class="btn btn-start">
+                            <i class="fas fa-play"></i> Start Game
+                        </button>
+                        <button id="pauseBtn" class="btn btn-pause">
+                            <i class="fas fa-pause"></i> Pause
+                        </button>
+                        <button id="resetBtn" class="btn btn-reset">
+                            <i class="fas fa-redo"></i> Reset
+                        </button>
+                        <div class="speed-control">
+                            <span>Speed:</span>
+                            <input type="range" id="speedSlider" min="1" max="15" value="5">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="canvas-container">
+                    <canvas id="gameCanvas" width="600" height="450"></canvas>
+                    <div id="gameOver" class="game-over">
+                        <h2>Game Over!</h2>
+                        <p>Your final score: <span id="finalScore">0</span></p>
+                        <button id="restartBtn" class="btn btn-restart">
+                            <i class="fas fa-redo"></i> Play Again
+                        </button>
+                    </div>
+                    <div id="startScreen" class="start-screen">
+                        <h2>Welcome to Snake!</h2>
+                        <div class="instructions">
+                            <h3><i class="fas fa-info-circle"></i> How to Play:</h3>
+                            <ul>
+                                <li>Use <kbd>Arrow Keys</kbd> or <kbd>WASD</kbd> to control the snake</li>
+                                <li>Eat the <i class="fas fa-apple-alt" style="color: #e74c3c;"></i> food to grow and score points</li>
+                                <li>Avoid hitting walls or yourself</li>
+                                <li>Adjust speed with the slider</li>
+                                <li>Press <kbd>P</kbd> to pause/resume</li>
+                                <li>Press <kbd>Space</kbd> to start/pause</li>
+                            </ul>
+                        </div>
+                        <button id="startScreenBtn" class="btn btn-start">
+                            <i class="fas fa-play"></i> Start Game
+                        </button>
+                    </div>
+                </div>
+
+                <div class="game-footer">
+                    <div class="keyboard-hint">
+                        <h3><i class="fas fa-keyboard"></i> Controls:</h3>
+                        <div class="keys">
+                            <div class="key-row">
+                                <div class="key"><kbd>↑</kbd> or <kbd>W</kbd></div>
+                                <span>Move Up</span>
+                            </div>
+                            <div class="key-row">
+                                <div class="key"><kbd>↓</kbd> or <kbd>S</kbd></div>
+                                <span>Move Down</span>
+                            </div>
+                            <div class="key-row">
+                                <div class="key"><kbd>←</kbd> or <kbd>A</kbd></div>
+                                <span>Move Left</span>
+                            </div>
+                            <div class="key-row">
+                                <div class="key"><kbd>→</kbd> or <kbd>D</kbd></div>
+                                <span>Move Right</span>
+                            </div>
+                            <div class="key-row">
+                                <div class="key"><kbd>P</kbd> or <kbd>Space</kbd></div>
+                                <span>Pause/Resume</span>
+                            </div>
+                            <div class="key-row">
+                                <div class="key"><kbd>R</kbd></div>
+                                <span>Reset Game</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="game-stats">
+                        <h3><i class="fas fa-chart-line"></i> Game Stats:</h3>
+                        <div class="stats">
+                            <div class="stat">
+                                <span class="stat-label">High Score:</span>
+                                <span class="stat-value" id="highScore">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Games Played:</span>
+                                <span class="stat-value" id="gamesPlayed">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Total Food Eaten:</span>
+                                <span class="stat-value" id="totalFood">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Best Length:</span>
+                                <span class="stat-value" id="bestLength">3</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="features">
+                <h2><i class="fas fa-cogs"></i> Game Features</h2>
+                <div class="feature-grid">
+                    <div class="feature">
+                        <i class="fas fa-palette"></i>
+                        <h3>Colorful Design</h3>
+                        <p>Vibrant colors with smooth animations</p>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-sliders-h"></i>
+                        <h3>Adjustable Speed</h3>
+                        <p>Control game speed with real-time slider</p>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-chart-bar"></i>
+                        <h3>Detailed Stats</h3>
+                        <p>Track score, length, food count and more</p>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-gamepad"></i>
+                        <h3>Dual Controls</h3>
+                        <p>Use both arrow keys and WASD for movement</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Snake Game &copy; 2026 | Made with <i class="fas fa-heart" style="color: #e74c3c;"></i> and JavaScript</p>
+            <p class="footer-links">
+                <a href="#"><i class="fab fa-github"></i> GitHub</a> |
+                <a href="#"><i class="fas fa-code"></i> View Source</a> |
+                <a href="#"><i class="fas fa-question-circle"></i> Help</a>
+            </p>
+        </footer>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
