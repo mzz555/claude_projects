@@ -27,8 +27,8 @@ body {
 
 #game-container {
     position: relative;
-    width: 480px;
-    height: 720px;
+    width: 640px;
+    height: 800px;
     box-shadow: 0 0 60px rgba(0, 245, 255, 0.15), 0 0 120px rgba(0, 0, 0, 0.8);
 }
 
@@ -234,30 +234,11 @@ body {
     text-shadow: var(--glow-cyan);
 }
 
-.bomb-val { color: var(--secondary); text-shadow: var(--glow-red); }
+.support-val { color: #00ff88; text-shadow: 0 0 12px rgba(0,255,136,0.5); }
+.lives-val { font-size: 16px; }
 
 .hud-right { text-align: right; }
 
-.lives-icons {
-    display: flex;
-    gap: 5px;
-    justify-content: flex-end;
-    margin-top: 1px;
-}
-
-.life-icon {
-    width: 18px;
-    height: 18px;
-    background: var(--primary);
-    clip-path: polygon(50% 0%, 100% 28%, 82% 100%, 50% 80%, 18% 100%, 0% 28%);
-    box-shadow: 0 0 8px rgba(0, 245, 255, 0.6);
-    transition: all 0.3s;
-}
-
-.life-icon.empty {
-    background: rgba(0, 245, 255, 0.1);
-    box-shadow: none;
-}
 
 .shield-bar {
     width: 80px;
