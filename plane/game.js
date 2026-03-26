@@ -162,14 +162,15 @@ class EnemyBullet {
     }
     draw(){
         ctx.save();
-        if(this.type==='boss'){ctx.shadowColor=this.color;ctx.shadowBlur=10;}
         const cx=this.x+this.w/2, cy=this.y+this.h/2;
-        const g=ctx.createRadialGradient(cx,cy,0,cx,cy,this.r);
-        g.addColorStop(0,'#fff'); g.addColorStop(0.4,this.color); g.addColorStop(1,'transparent');
-        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,this.r,0,Math.PI*2); ctx.fill();
+        if(this.type==='boss'){ ctx.shadowColor=this.color; ctx.shadowBlur=8; }
+        ctx.fillStyle=this.color;
+        ctx.beginPath(); ctx.arc(cx,cy,this.r,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='rgba(255,255,255,0.78)';
+        ctx.beginPath(); ctx.arc(cx-this.r*0.28,cy-this.r*0.28,this.r*0.38,0,Math.PI*2); ctx.fill();
         const td=Math.atan2(this.vy,this.vx);
-        ctx.globalAlpha=0.32; ctx.fillStyle=this.color;
-        ctx.save(); ctx.translate(cx,cy); ctx.rotate(td+Math.PI/2); ctx.fillRect(-2,0,4,this.r*3); ctx.restore();
+        ctx.globalAlpha=0.25; ctx.fillStyle=this.color;
+        ctx.save(); ctx.translate(cx,cy); ctx.rotate(td+Math.PI/2); ctx.fillRect(-1.5,0,3,this.r*2.2); ctx.restore();
         ctx.globalAlpha=1; ctx.restore();
     }
 }
@@ -644,8 +645,10 @@ class Enemy {
         }
         if(this.hp<=this.maxHp*0.5&&this.phase===1){this.phase=2;this.fireRate=22;}
         if(this.hp<=this.maxHp*0.25&&this.phase===2){this.phase=3;this.fireRate=13;}
-        this.bulletT++;
-        if(this.bulletT>=this.fireRate){this.bulletT=0;this._shootBoss(eBullets,player);}
+        if(!this.entering){
+            this.bulletT++;
+            if(this.bulletT>=this.fireRate){this.bulletT=0;this._shootBoss(eBullets,player);}
+        }
     }
     _shoot(eBullets,player){
         const cx=this.x+this.w/2, cy=this.y+this.h;
@@ -796,6 +799,10 @@ class Game {
         this.bossActive=false; this.bossSpawned=false;
         this.nebulaT=0; this.frame=0;
         this.fpDropCooldown=0; // 火力道具冷却（5s）
+        // 统计
+        this.stats={shotsFired:0,shotsHit:0,damageTaken:0,damageDealt:0,powerupsCollected:0,
+            survivalFrames:0,killsByType:{scout:0,fighter:0,cruiser:0,interceptor:0,bomber:0,elite:0,carrier:0,boss:0}};
+        this.fps=60; this._fpsCount=0; this._fpsTime=performance.now(); this._statsT=0;
         // 屏幕特效
         this.screenShake=0;
         this.screenFlashAlpha=0; this.screenFlashColor='#ff0000';
@@ -846,6 +853,9 @@ class Game {
         this.spawnT=0; this.spawnRate=45; this.levelT=0;
         this.bossActive=false; this.bossSpawned=false;
         this.fpDropCooldown=0;
+        this.stats={shotsFired:0,shotsHit:0,damageTaken:0,damageDealt:0,powerupsCollected:0,
+            survivalFrames:0,killsByType:{scout:0,fighter:0,cruiser:0,interceptor:0,bomber:0,elite:0,carrier:0,boss:0}};
+        this._statsT=0;
         this.screenShake=0; this.screenFlashAlpha=0; this.levelUpAnim=0;
     }
 
@@ -970,6 +980,7 @@ class Game {
     }
 
     _applyPowerup(type){
+        this.stats.powerupsCollected++;
         switch(type){
             case 'SHIELD':  this.player.shield=this.player.maxShield; break;
             case 'SUPPORT': this.player.supports=Math.min(this.player.supports+1,5); break;
@@ -1028,7 +1039,10 @@ class Game {
 
         // ★ 自动攻击（不需要按空格）
         if(this.fpDropCooldown>0)this.fpDropCooldown--;
+        if(this.player.alive&&this.player.enterAnim<=0)this.stats.survivalFrames++;
+        const _bPre=this.bullets.length;
         this.player.shoot(this.bullets,this.audio,this.enemies);
+        this.stats.shotsFired+=Math.max(0,this.bullets.length-_bPre);
         if(this.player._laserChargeAudio){this.player._laserChargeAudio=false;this.audio.laserCharge();}
         if(this.player._laserFireAudio){this.player._laserFireAudio=false;this.audio.laserFire();}
 
@@ -1058,7 +1072,6 @@ class Game {
             if(b instanceof GuidedMissile)b.update(this.enemies); else b.update(); return b.active;
         });
         this.eBullets=this.eBullets.filter(b=>{b.update();return b.active;});
-        if(this.bullets.length>150)this.bullets=this.bullets.slice(-120);
         // ── 激光穿透伤害 (Lv.5+) ──
         if(this.player.fireLevel>=5&&this.player.laserState==='firing'){
             const pcx=this.player.x+this.player.w/2;
@@ -1074,6 +1087,8 @@ class Game {
                         explode(e.x+e.w/2,e.y+e.h/2,et,this.particles);
                         (et==='large'||et==='boss')?this.audio.explodeLarge():this.audio.explodeSmall();
                         this.score+=e.score*this.difficulty; this.kills++;
+                        this.stats.killsByType[e.type]=(this.stats.killsByType[e.type]||0)+1;
+                        this.stats.damageDealt+=e.maxHp;
                         this._spawnPowerup(e.x+e.w/2,e.y+e.h/2); this._hud();
                     }
                 }
@@ -1094,7 +1109,6 @@ class Game {
             return e.active;
         });
         this.enemies.push(...newE);
-        if(this.eBullets.length>250)this.eBullets=this.eBullets.slice(-200);
 
         if(this.bossActive&&!bossAlive){this.bossActive=false;this._levelUp();}
 
@@ -1105,11 +1119,14 @@ class Game {
                 if(!e.active)continue;
                 if(hits({x:b.x,y:b.y,w:b.w,h:b.h},{x:e.x,y:e.y,w:e.w,h:e.h})){
                     b.active=false; explode(b.x+2,b.y,'tiny',this.particles); this.audio.hit();
+                    this.stats.shotsHit++;
                     if(e.hit(b.dmg)){
                         const et=e.type==='boss'?'boss':e.type==='cruiser'||e.type==='carrier'||e.type==='bomber'?'large':e.type==='fighter'||e.type==='elite'?'medium':'small';
                         explode(e.x+e.w/2,e.y+e.h/2,et,this.particles);
                         (et==='large'||et==='boss')?this.audio.explodeLarge():this.audio.explodeSmall();
                         this.score+=e.score*this.difficulty; this.kills++;
+                        this.stats.killsByType[e.type]=(this.stats.killsByType[e.type]||0)+1;
+                        this.stats.damageDealt+=e.maxHp;
                         this._spawnPowerup(e.x+e.w/2,e.y+e.h/2); this._hud();
                     }
                     break;
@@ -1123,6 +1140,7 @@ class Game {
             if(!b.active)continue;
             if(hits({x:b.x,y:b.y,w:b.w,h:b.h},hb)){
                 b.active=false;
+                this.stats.damageTaken+=b.dmg;
                 if(this.player.damage(b.dmg,this.audio)){
                     explode(this.player.x+this.player.w/2,this.player.y+this.player.h/2,'large',this.particles);
                     this.audio.explodeLarge(); this._gameOver();
@@ -1170,6 +1188,10 @@ class Game {
 
         this.particles=this.particles.filter(p=>p.update());
         if(this.particles.length>700)this.particles=this.particles.slice(-560);
+
+        // 统计面板更新（每20帧）
+        this._statsT++;
+        if(this._statsT>=20){ this._statsT=0; this._updateStatsPanel(); }
     }
 
     // ── DRAW ──
@@ -1301,7 +1323,68 @@ class Game {
         ctx.fillText(`BOSS  ${boss.hp} / ${boss.maxHp}`,canvas.width/2,by+bh/2);
     }
 
-    _loop(){ const tick=()=>{this._update();this._draw();requestAnimationFrame(tick);}; tick(); }
+    _updateStatsPanel(){
+        const g=id=>document.getElementById(id);
+        const p=this.player, st=this.stats;
+        // Player
+        const hpPct=p.alive?p.hp/p.maxHp:0;
+        const hpBar=g('sp-hp-bar');
+        if(hpBar){ hpBar.style.width=(hpPct*100)+'%'; hpBar.style.background=hpPct>0.5?'#00ff88':hpPct>0.25?'#ffbe0b':'#ff3366'; }
+        const shBar=g('sp-shield-bar'); if(shBar)shBar.style.width=(p.shield/p.maxShield*100)+'%';
+        const fpNames=['无','副炮','蜂群','导弹','双导弹','激光','超频MAX'];
+        const fpColors=['#aaa','#00ff44','#ffee00','#ff8800','#ff2200','#cc00ff','#00ffff'];
+        const fEl=g('sp-fire'); if(fEl){fEl.textContent='Lv.'+p.fireLevel+' '+fpNames[Math.min(p.fireLevel,6)]; fEl.style.color=fpColors[Math.min(p.fireLevel,6)];}
+        const hpV=g('sp-hp-val'); if(hpV)hpV.textContent=p.hp+'/'+p.maxHp;
+        const supV=g('sp-support'); if(supV)supV.textContent=p.supports;
+        // Mission
+        const tf=st.survivalFrames, mm=String(Math.floor(tf/3600)).padStart(2,'0'), ss=String(Math.floor((tf%3600)/60)).padStart(2,'0');
+        const tEl=g('sp-time'); if(tEl)tEl.textContent=mm+':'+ss;
+        const scEl=g('sp-score'); if(scEl)scEl.textContent=this.score.toLocaleString();
+        const lvEl=g('sp-level'); if(lvEl)lvEl.textContent=this.level;
+        const klEl=g('sp-kills'); if(klEl)klEl.textContent=this.kills;
+        // Boss HP或下次Boss倒计时
+        const bossRow=g('sp-boss-row'), bossTimer=g('sp-boss-timer');
+        const boss=this.enemies.find(e=>e.type==='boss'&&e.active);
+        if(bossRow){
+            if(boss){ bossRow.style.display='flex'; if(bossTimer)bossTimer.style.display='none';
+                const bb=g('sp-boss-bar'); if(bb)bb.style.width=(boss.hp/boss.maxHp*100)+'%';
+                const bv=g('sp-boss-hp'); if(bv)bv.textContent=boss.hp+'/'+boss.maxHp;
+            } else { bossRow.style.display='none'; }
+        }
+        if(bossTimer&&!boss){
+            const remaining=Math.max(0,this.levelDur-this.levelT);
+            bossTimer.style.display=''; bossTimer.textContent='BOSS IN '+Math.ceil(remaining/60)+'s';
+        }
+        // Kill log
+        const types=['scout','fighter','cruiser','interceptor','bomber','elite','carrier','boss'];
+        const maxK=Math.max(1,...types.map(t=>st.killsByType[t]||0));
+        types.forEach(t=>{ const k=st.killsByType[t]||0; const kv=g('kv-'+t); const kb=g('kb-'+t); if(kv)kv.textContent=k; if(kb)kb.style.width=(k/maxK*100)+'%'; });
+        // Combat
+        const hr=st.shotsFired>0?Math.round(st.shotsHit/st.shotsFired*100)+'%':'—';
+        const hrEl=g('sp-hitrate'); if(hrEl)hrEl.textContent=hr;
+        const shEl=g('sp-shots'); if(shEl)shEl.textContent=st.shotsFired;
+        const ddEl=g('sp-dmgd'); if(ddEl)ddEl.textContent=st.damageDealt;
+        const dtEl=g('sp-dmgt'); if(dtEl)dtEl.textContent=st.damageTaken;
+        const puEl=g('sp-pups'); if(puEl)puEl.textContent=st.powerupsCollected;
+        // System
+        const blEl=g('sp-bullets'); if(blEl)blEl.textContent=this.bullets.length;
+        const ebEl=g('sp-ebullets'); if(ebEl)ebEl.textContent=this.eBullets.length;
+        const ptEl=g('sp-particles'); if(ptEl)ptEl.textContent=this.particles.length;
+        const fpEl=g('sp-fps'); if(fpEl){ fpEl.textContent=this.fps; fpEl.style.color=this.fps>=55?'#00ff88':this.fps>=30?'#ffbe0b':'#ff3366'; }
+    }
+
+    _loop(){
+        const tick=()=>{
+            this._fpsCount++;
+            const now=performance.now();
+            if(now-this._fpsTime>=1000){
+                this.fps=Math.round(this._fpsCount*1000/(now-this._fpsTime));
+                this._fpsCount=0; this._fpsTime=now;
+            }
+            this._update(); this._draw(); requestAnimationFrame(tick);
+        };
+        tick();
+    }
 }
 
 window.addEventListener('load',()=>new Game());
