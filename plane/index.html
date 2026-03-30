@@ -103,70 +103,63 @@
 </div><!-- /game-container -->
 
 <div id="stats-panel">
-    <div class="stats-header">◈ BATTLE INTEL ◈</div>
+    <div class="stats-header">◈ 战况情报 ◈</div>
 
     <div class="sp-section">
-        <div class="sp-title">PLAYER STATUS</div>
+        <div class="sp-title">玩家状态</div>
         <div class="sp-row">
-            <span class="sp-label">HP</span>
+            <span class="sp-label">生命</span>
             <div class="sp-bar-wrap"><div class="sp-bar-fill" id="sp-hp-bar"></div></div>
             <span class="sp-val" id="sp-hp-val">30/30</span>
         </div>
         <div class="sp-row">
-            <span class="sp-label">SHIELD</span>
+            <span class="sp-label">护盾</span>
             <div class="sp-bar-wrap"><div class="sp-bar-fill sp-shield-fill" id="sp-shield-bar"></div></div>
         </div>
         <div class="sp-row">
-            <span class="sp-label">FIRE</span>
+            <span class="sp-label">火力</span>
             <span class="sp-val" id="sp-fire">Lv.0 无</span>
         </div>
         <div class="sp-row">
-            <span class="sp-label">SUPPORT</span>
+            <span class="sp-label">支援</span>
             <span class="sp-val sp-green" id="sp-support">3</span>
         </div>
     </div>
 
     <div class="sp-section">
-        <div class="sp-title">MISSION</div>
-        <div class="sp-row"><span class="sp-label">TIME</span><span class="sp-val sp-highlight" id="sp-time">00:00</span></div>
-        <div class="sp-row"><span class="sp-label">SCORE</span><span class="sp-val sp-gold" id="sp-score">0</span></div>
-        <div class="sp-row"><span class="sp-label">G.TIME</span><span class="sp-val" id="sp-level">00:00</span></div>
-        <div class="sp-row"><span class="sp-label">KILLS</span><span class="sp-val" id="sp-kills">0</span></div>
-        <div id="sp-boss-row" style="display:none" class="sp-row">
-            <span class="sp-label sp-red">BOSS HP</span>
-            <div class="sp-bar-wrap"><div class="sp-bar-fill sp-boss-fill" id="sp-boss-bar"></div></div>
-            <span class="sp-val sp-red" id="sp-boss-hp">150/150</span>
-        </div>
-        <div class="sp-boss-timer" id="sp-boss-timer"></div>
+        <div class="sp-title">任务</div>
+        <div class="sp-row"><span class="sp-label">时间</span><span class="sp-val sp-highlight" id="sp-time">00:00</span></div>
+        <div class="sp-row"><span class="sp-label">分数</span><span class="sp-val sp-gold" id="sp-score">0</span></div>
+        <div class="sp-row"><span class="sp-label">游戏时长</span><span class="sp-val" id="sp-level">00:00</span></div>
+        <div class="sp-row"><span class="sp-label">击杀</span><span class="sp-val" id="sp-kills">0</span></div>
     </div>
 
     <div class="sp-section">
-        <div class="sp-title">KILL LOG</div>
-        <div class="kill-row"><span class="kl">SCOUT</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-scout"></div></div><span class="kv" id="kv-scout">0</span></div>
-        <div class="kill-row"><span class="kl">FIGHTER</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-fighter"></div></div><span class="kv" id="kv-fighter">0</span></div>
-        <div class="kill-row"><span class="kl">CRUISER</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-cruiser"></div></div><span class="kv" id="kv-cruiser">0</span></div>
-        <div class="kill-row"><span class="kl">INTCPTR</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-interceptor"></div></div><span class="kv" id="kv-interceptor">0</span></div>
-        <div class="kill-row"><span class="kl">BOMBER</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-bomber"></div></div><span class="kv" id="kv-bomber">0</span></div>
-        <div class="kill-row"><span class="kl">ELITE</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-elite"></div></div><span class="kv" id="kv-elite">0</span></div>
-        <div class="kill-row"><span class="kl">CARRIER</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-carrier"></div></div><span class="kv" id="kv-carrier">0</span></div>
-        <div class="kill-row"><span class="kl kl-boss">BOSS</span><div class="kill-bar-bg"><div class="kill-bar kill-bar-boss" id="kb-boss"></div></div><span class="kv kv-boss" id="kv-boss">0</span></div>
+        <div class="sp-title">击杀记录</div>
+        <div class="kill-row"><span class="kl">侦察</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-scout"></div></div><span class="kv" id="kv-scout">0</span></div>
+        <div class="kill-row"><span class="kl">战斗</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-fighter"></div></div><span class="kv" id="kv-fighter">0</span></div>
+        <div class="kill-row"><span class="kl">巡洋</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-cruiser"></div></div><span class="kv" id="kv-cruiser">0</span></div>
+        <div class="kill-row"><span class="kl">拦截</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-interceptor"></div></div><span class="kv" id="kv-interceptor">0</span></div>
+        <div class="kill-row"><span class="kl">轰炸</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-bomber"></div></div><span class="kv" id="kv-bomber">0</span></div>
+        <div class="kill-row"><span class="kl">精英</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-elite"></div></div><span class="kv" id="kv-elite">0</span></div>
+        <div class="kill-row"><span class="kl">母舰</span><div class="kill-bar-bg"><div class="kill-bar" id="kb-carrier"></div></div><span class="kv" id="kv-carrier">0</span></div>
     </div>
 
     <div class="sp-section">
-        <div class="sp-title">COMBAT</div>
-        <div class="sp-row"><span class="sp-label">HIT RATE</span><span class="sp-val sp-gold" id="sp-hitrate">—</span></div>
-        <div class="sp-row"><span class="sp-label">SHOTS</span><span class="sp-val" id="sp-shots">0</span></div>
-        <div class="sp-row"><span class="sp-label">DMG DEALT</span><span class="sp-val sp-green" id="sp-dmgd">0</span></div>
-        <div class="sp-row"><span class="sp-label">DMG TAKEN</span><span class="sp-val sp-red" id="sp-dmgt">0</span></div>
-        <div class="sp-row"><span class="sp-label">POWERUPS</span><span class="sp-val sp-highlight" id="sp-pups">0</span></div>
+        <div class="sp-title">战斗统计</div>
+        <div class="sp-row"><span class="sp-label">命中率</span><span class="sp-val sp-gold" id="sp-hitrate">—</span></div>
+        <div class="sp-row"><span class="sp-label">射击数</span><span class="sp-val" id="sp-shots">0</span></div>
+        <div class="sp-row"><span class="sp-label">输出伤害</span><span class="sp-val sp-green" id="sp-dmgd">0</span></div>
+        <div class="sp-row"><span class="sp-label">承受伤害</span><span class="sp-val sp-red" id="sp-dmgt">0</span></div>
+        <div class="sp-row"><span class="sp-label">道具数</span><span class="sp-val sp-highlight" id="sp-pups">0</span></div>
     </div>
 
     <div class="sp-section">
-        <div class="sp-title">SYSTEM</div>
-        <div class="sp-row"><span class="sp-label">BULLETS</span><span class="sp-val" id="sp-bullets">0</span></div>
-        <div class="sp-row"><span class="sp-label">E.BULLETS</span><span class="sp-val sp-red" id="sp-ebullets">0</span></div>
-        <div class="sp-row"><span class="sp-label">PARTICLES</span><span class="sp-val" id="sp-particles">0</span></div>
-        <div class="sp-row"><span class="sp-label">FPS</span><span class="sp-val sp-green" id="sp-fps">60</span></div>
+        <div class="sp-title">系统</div>
+        <div class="sp-row"><span class="sp-label">子弹数</span><span class="sp-val" id="sp-bullets">0</span></div>
+        <div class="sp-row"><span class="sp-label">敌弹数</span><span class="sp-val sp-red" id="sp-ebullets">0</span></div>
+        <div class="sp-row"><span class="sp-label">粒子数</span><span class="sp-val" id="sp-particles">0</span></div>
+        <div class="sp-row"><span class="sp-label">帧率</span><span class="sp-val sp-green" id="sp-fps">60</span></div>
     </div>
 </div><!-- /stats-panel -->
 

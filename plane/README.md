@@ -1,4 +1,4 @@
-# 雷霆战机 — Thunder Strike v5.0
+# 雷霆战机 — Thunder Strike v6.0
 
 A canvas-based vertical scrolling shooter built with vanilla HTML5/JS. No frameworks, no dependencies.
 

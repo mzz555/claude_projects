@@ -74,8 +74,8 @@ const lerp    = (a,b,t) => a+(b-a)*t;
 const clamp   = (v,a,b) => Math.max(a,Math.min(b,v));
 function hits(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
 // 敌机等级 → 道具爆率
-const ENEMY_TIER={scout:1,fighter:2,interceptor:2,elite:3,cruiser:3,bomber:4,carrier:4,boss:5};
-const TIER_RATE={1:0.03,2:0.10,3:0.30,4:0.50,5:1.00};
+const ENEMY_TIER={scout:1,fighter:2,interceptor:2,elite:3,cruiser:3,bomber:4,carrier:4};
+const TIER_RATE={1:0.03,2:0.10,3:0.30,4:0.50};
 
 // ─────────────────────────────────────────────────────────────
 //  STARS
@@ -150,18 +150,87 @@ class Bullet {
 }
 
 class EnemyBullet {
-    constructor(x,y,vx,vy,dmg,type='normal'){
+    constructor(x,y,vx,vy,dmg,wtype='single'){
         this.x=x; this.y=y; this.vx=vx; this.vy=vy;
-        this.dmg=dmg; this.type=type; this.active=true; this.age=0;
-        if(type==='boss')    {this.r=7; this.color='#ff0040'; this.w=14; this.h=14;}
-        else if(type==='cluster'){this.r=4; this.color='#ff8800'; this.w=8; this.h=8;}
-        else                 {this.r=5; this.color='#ff6b35'; this.w=10; this.h=10;}
+        this.dmg=dmg; this.wtype=wtype; this.active=true; this.age=0;
+        this.homing=false; this.willSplit=false; this.splitTimer=0; this.splitDone=false;
+        this.isDiamond=false; this.isMissile=false; this.deployAtAge=-1;
+        this.eFieldW=80; this.eFieldH=60;
+        switch(wtype){
+            case 'single':     this.color='#ff4444'; this.w=8;  this.h=8;  break;
+            case 'double':     this.color='#ff8800'; this.w=8;  this.h=8;  break;
+            case 'rapid':      this.color='#ffcc00'; this.w=6;  this.h=6;  break;
+            case 'fan':        this.color='#ff44aa'; this.w=10; this.h=10; break;
+            case 'barrage':    this.color='#cc44ff'; this.w=8;  this.h=8;  this.isDiamond=true; break;
+            case 'fieldproj':  this.color='#88aaff'; this.w=10; this.h=10; this.isDiamond=true;
+                               this.deployAtAge=120; break;
+            case 'hmissile':   this.color='#44ffcc'; this.w=8;  this.h=14; this.homing=true; this.isMissile=true; break;
+            case 'split':      this.color='#ff6600'; this.w=10; this.h=10; this.willSplit=true; this.splitTimer=60; break;
+            case 'splitchild': this.color='#ff8833'; this.w=8;  this.h=8;  break;
+            default:           this.color='#ff6b35'; this.w=10; this.h=10;
+        }
     }
-    update(){
+    update(player){
         this.x+=this.vx; this.y+=this.vy; this.age++;
-        if(this.y<-30||this.y>canvas.height+30||this.x<-30||this.x>canvas.width+30)this.active=false;
+        if(this.homing&&player&&player.alive){
+            const dx=(player.x+player.w/2)-(this.x+this.w/2);
+            const dy=(player.y+player.h/2)-(this.y+this.h/2);
+            const desired=Math.atan2(dy,dx);
+            let cur=Math.atan2(this.vy,this.vx);
+            let diff=desired-cur;
+            if(diff>Math.PI)diff-=Math.PI*2; if(diff<-Math.PI)diff+=Math.PI*2;
+            cur+=Math.sign(diff)*Math.min(Math.abs(diff),0.05);
+            const spd=Math.sqrt(this.vx*this.vx+this.vy*this.vy);
+            this.vx=Math.cos(cur)*spd; this.vy=Math.sin(cur)*spd;
+        }
+        if(this.willSplit&&this.splitTimer>0){ this.splitTimer--; }
+        const margin=this.homing?120:20;
+        if(this.y>canvas.height+margin||this.y<-margin||this.x>canvas.width+margin||this.x<-margin)this.active=false;
     }
-    // draw() 已由 Game._draw() 批量绘制取代，不单独调用
+    // 特殊形状子弹单独绘制（菱形/导弹）
+    drawSpecial(){
+        ctx.save();
+        if(this.isDiamond){
+            ctx.translate(this.x+this.w/2,this.y+this.h/2);
+            ctx.fillStyle=this.color;
+            ctx.shadowColor=this.color; ctx.shadowBlur=8;
+            ctx.beginPath(); ctx.moveTo(0,-this.h/2); ctx.lineTo(this.w/2,0); ctx.lineTo(0,this.h/2); ctx.lineTo(-this.w/2,0); ctx.closePath();
+            ctx.fill();
+        } else if(this.isMissile){
+            const ang=Math.atan2(this.vy,this.vx)+Math.PI/2;
+            ctx.translate(this.x+this.w/2,this.y+this.h/2); ctx.rotate(ang);
+            ctx.shadowColor='#44ffcc'; ctx.shadowBlur=12;
+            ctx.fillStyle='#44ffcc';
+            ctx.beginPath(); ctx.moveTo(0,-this.h/2); ctx.lineTo(-this.w/2,this.h/4); ctx.lineTo(0,this.h/2); ctx.lineTo(this.w/2,this.h/4); ctx.closePath(); ctx.fill();
+            ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(0,-this.h/2+2,1.5,0,Math.PI*2); ctx.fill();
+        }
+        ctx.restore();
+    }
+    // 普通矩形子弹由 Game._draw() 批量绘制
+}
+
+// ─────────────────────────────────────────────────────────────
+//  ELECTRIC FIELD  电场 (Bomber的压制武器)
+// ─────────────────────────────────────────────────────────────
+class EField {
+    constructor(x,y,w,h){ this.x=x; this.y=y; this.w=w; this.h=h; this.timer=0; this.duration=180; this.active=true; }
+    update(){ this.timer++; if(this.timer>=this.duration)this.active=false; }
+    draw(){
+        const alpha=0.35+0.25*Math.sin(this.timer*0.18);
+        ctx.save(); ctx.globalAlpha=alpha;
+        ctx.fillStyle='#1a2aff'; ctx.fillRect(this.x,this.y,this.w,this.h);
+        ctx.strokeStyle='#88aaff'; ctx.lineWidth=2;
+        ctx.shadowColor='#4466ff'; ctx.shadowBlur=20;
+        ctx.strokeRect(this.x,this.y,this.w,this.h);
+        // 电弧纹
+        const step=20; ctx.strokeStyle=`rgba(136,170,255,${0.5+0.3*Math.sin(this.timer*0.3)})`;
+        ctx.lineWidth=1; ctx.shadowBlur=5;
+        for(let i=0;i<3;i++){
+            const lx=this.x+rand(0,this.w), ly=this.y+rand(0,this.h);
+            ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(lx+rand(-step,step),ly+rand(-step,step)); ctx.stroke();
+        }
+        ctx.restore(); ctx.globalAlpha=1;
+    }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -548,40 +617,49 @@ class Enemy {
         this.active=true; this.hitFlash=0; this.t=0; this.bulletT=0; this.vx=0;
         this.spawnQueue=[]; this.hasEntered=false; this.entryFlash=0; this.alpha=0;
         this.confrontMode=false; this.confrontVX=0; this.confrontTimer=0;
+        // rapid burst state (interceptor)
+        this.burstCount=0; this.burstTimer=0;
+        // carrier laser state
+        this.eLaserState='idle'; this.eLaserTimer=0;
+        this.eLaserChargeDur=80; this.eLaserFireDur=50;
+        this.eLaserCycleTimer=0; this.eLaserCycleInterval=400;
+        // carrier weapon cycle (missile→split→laser→missile→...)
+        this.weaponCycleIdx=0; this.weaponCycleShots=0;
         this._setup();
     }
     _setup(){
         switch(this.type){
-            // 基础三种（缩小约70%，速度×0.6）
             case 'scout':
                 this.w=23;this.h=21;this.hp=this.maxHp=2;
-                this.vy=rand(1.0,2.0);this.score=100;this.color='#ff3366';this.fireRate=200;this.dmg=1;break;
+                this.vy=rand(1.0,2.0);this.score=100;this.color='#ff3366';this.fireRate=200;this.dmg=1;
+                this.weaponType='single'; break;
             case 'fighter':
                 this.w=31;this.h=30;this.hp=this.maxHp=8;
-                this.vy=rand(0.6,1.0);this.score=260;this.color='#ff6600';this.fireRate=110;this.dmg=1;break;
-            case 'cruiser':
-                this.w=44;this.h=42;this.hp=this.maxHp=20;
-                this.vy=rand(0.35,0.65);this.score=520;this.color='#cc0000';this.fireRate=85;this.dmg=2;break;
+                this.vy=rand(0.6,1.0);this.score=260;this.color='#ff6600';this.fireRate=110;this.dmg=1;
+                this.weaponType='double'; break;
             case 'interceptor':
                 this.w=20;this.h=19;this.hp=this.maxHp=4;
                 this.vy=rand(1.4,2.2);this.score=150;this.color='#ff00cc';
                 this.fireRate=65;this.dmg=1;
-                this.sweepDir=Math.random()<0.5?1:-1;this.sweepAmp=rand(2,3.5);break;
-            case 'bomber':
-                this.w=52;this.h=43;this.hp=this.maxHp=32;
-                this.vy=rand(0.25,0.5);this.score=450;this.color='#886600';this.fireRate=95;this.dmg=2;break;
+                this.sweepDir=Math.random()<0.5?1:-1;this.sweepAmp=rand(2,3.5);
+                this.weaponType='rapid'; break;
             case 'elite':
                 this.w=36;this.h=35;this.hp=this.maxHp=12;
-                this.vy=rand(0.5,0.9);this.score=380;this.color='#ff8800';this.fireRate=75;this.dmg=1;break;
+                this.vy=rand(0.5,0.9);this.score=380;this.color='#ff8800';this.fireRate=75;this.dmg=1;
+                this.weaponType='fan'; break;
+            case 'cruiser':
+                this.w=44;this.h=42;this.hp=this.maxHp=20;
+                this.vy=rand(0.35,0.65);this.score=520;this.color='#cc0000';this.fireRate=85;this.dmg=2;
+                this.weaponType='barrage'; break;
+            case 'bomber':
+                this.w=52;this.h=43;this.hp=this.maxHp=32;
+                this.vy=rand(0.25,0.5);this.score=450;this.color='#886600';this.fireRate=110;this.dmg=2;
+                this.weaponType='field'; break;
             case 'carrier':
                 this.w=65;this.h=54;this.hp=this.maxHp=44;
                 this.vy=rand(0.18,0.35);this.score=900;this.color='#440088';
-                this.fireRate=60;this.dmg=2;this.nextSpawn=200;break;
-            case 'boss':
-                this.w=100;this.h=79;this.hp=this.maxHp=300;
-                this.vy=0.3;this.score=7000;this.color='#ff0000';
-                this.fireRate=36;this.dmg=3;
-                this.entering=true;this.targetY=80;this.phase=1;break;
+                this.fireRate=120;this.dmg=2;this.nextSpawn=200;
+                this.weaponType='cycle'; break;
         }
     }
     update(eBullets,player){
@@ -593,7 +671,7 @@ class Enemy {
         }
         if(this.entryFlash>0){ this.entryFlash--; this.alpha=Math.min(1,this.alpha+0.12); }
         else { this.alpha=1; }
-        this.type==='boss'?this._updateBoss(eBullets,player):this._updateNormal(eBullets,player);
+        this._updateNormal(eBullets,player);
         if(this.y>canvas.height+80)this.active=false;
     }
     _updateNormal(eBullets,player){
@@ -649,62 +727,66 @@ class Enemy {
             // 底线：绝不飞过玩家
             if(this.y>player.y-this.h-8)this.y=player.y-this.h-8;
         }
+        // 连发炮突发处理（interceptor）
+        if(this.type==='interceptor'&&this.burstCount>0){
+            this.burstTimer++;
+            if(this.burstTimer%15===0){
+                const cx=this.x+this.w/2, cy=this.y+this.h;
+                eBullets.push(new EnemyBullet(cx-3,cy,0,5.0,this.dmg,'rapid'));
+                this.burstCount--;
+            }
+        }
+        // 母舰激光状态机
+        if(this.type==='carrier'){
+            this.eLaserCycleTimer++;
+            if(this.eLaserState==='idle'&&this.eLaserCycleTimer>=this.eLaserCycleInterval){
+                this.eLaserCycleTimer=0; this.eLaserState='charging'; this.eLaserTimer=this.eLaserChargeDur;
+            } else if(this.eLaserState==='charging'){
+                if(--this.eLaserTimer<=0){this.eLaserState='firing'; this.eLaserTimer=this.eLaserFireDur;}
+            } else if(this.eLaserState==='firing'){
+                if(--this.eLaserTimer<=0)this.eLaserState='idle';
+            }
+        }
         this.bulletT++;
         // 固定中等难度（×0.58，最小间隔15帧）
         const rate=Math.max(15,Math.floor(this.fireRate*0.58));
         if(this.bulletT>=rate){this.bulletT=0;this._shoot(eBullets,player);}
     }
-    _updateBoss(eBullets,player){
-        if(this.entering){
-            this.x=lerp(this.x,canvas.width/2-this.w/2,0.04);
-            this.y=lerp(this.y,this.targetY,0.04);
-            if(Math.abs(this.y-this.targetY)<1.5)this.entering=false;
-        } else {
-            const seg=Math.floor(this.t/220)%4;
-            const targets=[25,canvas.width-this.w-25,canvas.width/2-this.w/2,player.x-this.w/2+player.w/2];
-            this.x=lerp(this.x,clamp(targets[seg],0,canvas.width-this.w),0.014);
-        }
-        if(this.hp<=this.maxHp*0.5&&this.phase===1){this.phase=2;this.fireRate=30;}
-        if(this.hp<=this.maxHp*0.25&&this.phase===2){this.phase=3;this.fireRate=18;}
-        if(!this.entering){
-            this.bulletT++;
-            if(this.bulletT>=this.fireRate){this.bulletT=0;this._shootBoss(eBullets,player);}
-        }
-    }
     _shoot(eBullets,player){
         const cx=this.x+this.w/2, cy=this.y+this.h;
-        switch(this.type){
-            case 'scout':    eBullets.push(new EnemyBullet(cx-5,cy,0,4.0,this.dmg)); break;
-            case 'fighter':{
-                const dx=player.x+player.w/2-cx, dy=player.y-cy, d=Math.sqrt(dx*dx+dy*dy)||1;
-                eBullets.push(new EnemyBullet(cx-5,cy,dx/d*4.5,dy/d*4.5,this.dmg)); break;
+        const dx=player.x+player.w/2-cx, dy=player.y-cy, d=Math.sqrt(dx*dx+dy*dy)||1;
+        switch(this.weaponType){
+            case 'single':  // Scout: 单发直射
+                eBullets.push(new EnemyBullet(cx-4,cy,0,4.0,this.dmg,'single')); break;
+            case 'double':  // Fighter: 双发散射
+                eBullets.push(new EnemyBullet(cx-6,cy,Math.sin(-0.26)*4.5,Math.cos(-0.26)*4.5,this.dmg,'double'));
+                eBullets.push(new EnemyBullet(cx+2,cy,Math.sin( 0.26)*4.5,Math.cos( 0.26)*4.5,this.dmg,'double')); break;
+            case 'rapid':   // Interceptor: 连发炮（触发突发序列）
+                if(this.burstCount<=0){ this.burstCount=3; this.burstTimer=0; } break;
+            case 'fan': {   // Elite: 5弹扇形散射
+                const angles=[-0.52,-0.26,0,0.26,0.52];
+                angles.forEach(a=>{
+                    eBullets.push(new EnemyBullet(cx-4,cy,dx/d*5+Math.sin(a)*3,dy/d*5+Math.cos(a)*1,this.dmg,'fan'));
+                }); break;
             }
-            case 'cruiser':  [-2.5,0,2.5].forEach(ox=>eBullets.push(new EnemyBullet(cx-5,cy,ox,3.5,this.dmg))); break;
-            case 'interceptor':{
-                const dx=player.x+player.w/2-cx, dy=player.y-cy, d=Math.sqrt(dx*dx+dy*dy)||1;
-                eBullets.push(new EnemyBullet(cx,cy,dx/d*5-0.8,dy/d*5,this.dmg));
-                eBullets.push(new EnemyBullet(cx,cy,dx/d*5+0.8,dy/d*5,this.dmg)); break;
+            case 'barrage': // Cruiser: 3×3弹幕
+                for(let r=-1;r<=1;r++) for(let c=-1;c<=1;c++)
+                    eBullets.push(new EnemyBullet(cx-4+c*12,cy,c*1.6,3.5+r*0.8,this.dmg,'barrage')); break;
+            case 'field':   // Bomber: 投掷电场炸弹（缓慢下落）
+                eBullets.push(new EnemyBullet(cx-5,cy,rand(-0.5,0.5),1.5,this.dmg,'fieldproj')); break;
+            case 'cycle': { // Carrier: 循环三种武器
+                const weapons=['hmissile','split','skip'];
+                const w=weapons[this.weaponCycleIdx%3];
+                this.weaponCycleShots++;
+                if(this.weaponCycleShots>=2){ this.weaponCycleShots=0; this.weaponCycleIdx++; }
+                if(w==='hmissile'){
+                    eBullets.push(new EnemyBullet(cx-4,cy,0,2.5,this.dmg,'hmissile'));
+                } else if(w==='split'){
+                    eBullets.push(new EnemyBullet(cx-4,cy,dx/d*3.5,dy/d*3.5,this.dmg,'split'));
+                }
+                // 'skip' = 本轮跳过（激光已由状态机单独处理）
+                break;
             }
-            case 'bomber':   for(let i=-2;i<=2;i++) eBullets.push(new EnemyBullet(cx+i*12,cy,i*1.0,rand(2,3.5),this.dmg,'cluster')); break;
-            case 'elite':{
-                const dx=player.x+player.w/2-cx, dy=player.y-cy, d=Math.sqrt(dx*dx+dy*dy)||1;
-                [-7,7].forEach(ox=>eBullets.push(new EnemyBullet(cx+ox,cy,dx/d*5,dy/d*5,this.dmg))); break;
-            }
-            case 'carrier':  [-2,-1,0,1,2].forEach(i=>eBullets.push(new EnemyBullet(cx-5,cy,i*2,4.0,this.dmg))); break;
-        }
-    }
-    _shootBoss(eBullets,player){
-        const cx=this.x+this.w/2, cy=this.y+this.h;
-        if(this.phase===1){
-            for(let i=-2;i<=2;i++)eBullets.push(new EnemyBullet(cx-5,cy,i*1.8,5.0,this.dmg,'boss'));
-        } else if(this.phase===2){
-            const dx=player.x+player.w/2-cx, dy=player.y-cy, base=Math.atan2(dy,dx);
-            for(let i=-2;i<=2;i++){const a=base+i*0.22; eBullets.push(new EnemyBullet(cx,cy,Math.cos(a)*6,Math.sin(a)*6,this.dmg,'boss'));}
-        } else {
-            const cnt=7;
-            for(let i=0;i<cnt;i++){const a=(i/cnt)*Math.PI*2+this.t*0.04; eBullets.push(new EnemyBullet(cx,cy,Math.cos(a)*5.5,Math.sin(a)*5.5,this.dmg,'boss'));}
-            const dx=player.x+player.w/2-cx, dy=player.y-cy, d=Math.sqrt(dx*dx+dy*dy)||1;
-            eBullets.push(new EnemyBullet(cx,cy,dx/d*8,dy/d*8,this.dmg*2,'boss'));
         }
     }
     hit(amt){ this.hp-=amt; this.hitFlash=10; if(this.hp<=0){this.active=false;return true;} return false; }
@@ -722,7 +804,7 @@ class Enemy {
         ctx.shadowColor=this.hitFlash>0?'#ffffff':this.color;
         ctx.shadowBlur=this.hitFlash>0?16:8;
         this._drawShape(ctx);
-        if(this.maxHp>1&&this.type!=='boss')this._drawHpBar();
+        if(this.maxHp>1)this._drawHpBar();
         ctx.restore(); ctx.globalAlpha=1;
     }
     _drawShape(ctx){
@@ -775,28 +857,7 @@ class Enemy {
                 ctx.fillStyle=cg2; ctx.beginPath(); ctx.arc(0,0,W/5,0,Math.PI*2); ctx.fill();
                 [-W/3,0,W/3].forEach(ex=>{ ctx.fillStyle='rgba(180,80,255,0.8)'; ctx.beginPath(); ctx.ellipse(ex,H*0.38,4,5,0,0,Math.PI*2); ctx.fill(); }); break;
             }
-            case 'boss': this._drawBossBody(ctx); break;
         }
-    }
-    _drawBossBody(ctx){
-        const W=this.w,H=this.h,p=this.phase;
-        ctx.beginPath(); ctx.moveTo(0,-H/2); ctx.lineTo(-W/4,-H/4); ctx.lineTo(-W/2,H/8); ctx.lineTo(-W/3,H/2); ctx.lineTo(0,H/3); ctx.lineTo(W/3,H/2); ctx.lineTo(W/2,H/8); ctx.lineTo(W/4,-H/4); ctx.closePath();
-        const bg=ctx.createLinearGradient(0,-H/2,0,H/2);
-        bg.addColorStop(0,p>=3?'#ff6600':p>=2?'#ff2200':'#cc0000'); bg.addColorStop(1,p>=3?'#882200':'#440000');
-        ctx.fillStyle=bg; ctx.fill();
-        [[-1,-W/2],[1,W/2]].forEach(([s,wx])=>{
-            ctx.beginPath(); ctx.moveTo(wx,H/8); ctx.lineTo(wx+s*22,-H/4); ctx.lineTo(wx+s*22,H/4); ctx.lineTo(wx,H/3); ctx.closePath();
-            ctx.fillStyle='#660000'; ctx.fill();
-        });
-        const _sb=ctx.shadowBlur; ctx.shadowBlur=0;
-        ctx.strokeStyle=`rgba(255,${p>=3?120:40},0,0.35)`; ctx.lineWidth=1.5;
-        ctx.beginPath(); ctx.moveTo(-W/5,-H/5); ctx.lineTo(-W/5,H/4); ctx.moveTo(W/5,-H/5); ctx.lineTo(W/5,H/4); ctx.stroke();
-        ctx.shadowBlur=_sb;
-        const cc=p>=3?'#fff':p>=2?'#ffaa00':'#ff5500';
-        const cg=ctx.createRadialGradient(0,-H/5,0,0,-H/5,18); cg.addColorStop(0,cc); cg.addColorStop(0.5,cc+'88'); cg.addColorStop(1,'transparent');
-        ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(0,-H/5,18,0,Math.PI*2); ctx.fill();
-        const hc=p>=2?'#ff6600':'#ff0000';
-        [-W/3,0,W/3].forEach(hx=>{ ctx.fillStyle=hc; ctx.beginPath(); ctx.arc(hx,H/3,6,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(hx,H/3,2,0,Math.PI*2); ctx.fill(); });
     }
     _drawHpBar(){
         const bw=this.w,bh=3,bx=-this.w/2,by=-this.h/2-8;
@@ -818,12 +879,12 @@ class Game {
         this.stars=Array.from({length:120},()=>new Star(true));
         this.audio=new AudioEngine(); this.keys={};
         this.waveT=0; this.gameTime=0;         // 波次/游戏计时
-        this.bossActive=false; this.bossSpawned=false;
         this.nebulaT=0; this.frame=0;
-        this.fpDropCooldown=0; this._bossHPGrad=null;
+        this.fpDropCooldown=0;
+        this.eFields=[];
         // 统计
         this.stats={shotsFired:0,shotsHit:0,damageTaken:0,damageDealt:0,powerupsCollected:0,
-            survivalFrames:0,killsByType:{scout:0,fighter:0,cruiser:0,interceptor:0,bomber:0,elite:0,carrier:0,boss:0}};
+            survivalFrames:0,killsByType:{scout:0,fighter:0,cruiser:0,interceptor:0,bomber:0,elite:0,carrier:0}};
         this.fps=60; this._fpsCount=0; this._fpsTime=performance.now(); this._statsT=0;
         // 预渲染扫描线（避免每帧267次fillRect）
         this._scanline=document.createElement('canvas');
@@ -874,10 +935,10 @@ class Game {
         this.player=new Player();
         this.bullets=[]; this.eBullets=[]; this.enemies=[]; this.particles=[]; this.powerups=[]; this.allies=[];
         this.waveT=0; this.gameTime=0;
-        this.bossActive=false; this.bossSpawned=false;
-        this.fpDropCooldown=0; this._bossHPGrad=null;
+        this.fpDropCooldown=0;
+        this.eFields=[];
         this.stats={shotsFired:0,shotsHit:0,damageTaken:0,damageDealt:0,powerupsCollected:0,
-            survivalFrames:0,killsByType:{scout:0,fighter:0,cruiser:0,interceptor:0,bomber:0,elite:0,carrier:0,boss:0}};
+            survivalFrames:0,killsByType:{scout:0,fighter:0,cruiser:0,interceptor:0,bomber:0,elite:0,carrier:0}};
         this._statsT=0;
         this.screenShake=0; this.screenFlashAlpha=0;
     }
@@ -952,7 +1013,7 @@ class Game {
     }
 
     _spawnEnemy(){
-        if(this.bossActive||this.enemies.length>=12)return;
+        if(this.enemies.length>=12)return;
         const x=rand(20,canvas.width-100);
         const type=this._getEnemyType();
         const e=new Enemy(x,-70,type);
@@ -960,37 +1021,18 @@ class Game {
         explode(x+e.w/2,-5,'spawn',this.particles);
     }
     _getEnemyType(){
-        const t=this.gameTime/60, r=Math.random();
-        if(t<5)  return 'scout';
-        if(t<10) return r<0.55?'scout':'fighter';
-        if(t<15) return r<0.38?'scout':r<0.72?'fighter':'interceptor';
-        if(t<25) return r<0.22?'scout':r<0.44?'fighter':r<0.64?'interceptor':'elite';
-        if(t<40) return r<0.12?'scout':r<0.28?'fighter':r<0.42?'interceptor':r<0.60?'elite':'cruiser';
-        if(t<60) return r<0.08?'scout':r<0.18?'fighter':r<0.30?'interceptor':r<0.46?'elite':r<0.64?'cruiser':'bomber';
-        return   r<0.06?'scout':r<0.14?'fighter':r<0.24?'interceptor':r<0.37?'elite':r<0.52?'cruiser':r<0.68?'bomber':'carrier';
+        // 0–200s 线性插值：Lv1 80%→20%，Lv2 固定20%，Lv3 0%→30%，Lv4 余量0%→30%
+        const alpha=Math.min(this.gameTime/12000,1); // 12000帧=200s
+        const p1=lerp(0.80,0.20,alpha);
+        const p2=0.20;
+        const p3=lerp(0.00,0.30,alpha);
+        const r=Math.random();
+        if(r<p1)         return 'scout';
+        if(r<p1+p2)      return Math.random()<0.5?'fighter':'interceptor';
+        if(r<p1+p2+p3)   return Math.random()<0.5?'elite':'cruiser';
+        return Math.random()<0.5?'bomber':'carrier';
     }
 
-    _spawnBoss(){
-        this.bossSpawned=true; this.bossActive=true;
-        this.enemies=[]; this.eBullets=[];
-        this.enemies.push(new Enemy(canvas.width/2-50,-130,'boss'));
-        // 预缓存Boss HP条渐变（避免每帧重建）
-        this._bossHPGrad=ctx.createLinearGradient(20,0,canvas.width-20,0);
-        this._bossHPGrad.addColorStop(0,'#ff0000');
-        this._bossHPGrad.addColorStop(0.5,'#ff5500');
-        this._bossHPGrad.addColorStop(1,'#ffaa00');
-        this.audio.bossWarn();
-        this._triggerShake(12); this._triggerFlash('#ff0000',0.35);
-        // Boss 警告文字
-        const w=document.createElement('div');
-        w.style.cssText=`position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);
-            font-family:'Orbitron',monospace;font-size:24px;font-weight:900;color:#ff0000;
-            text-shadow:0 0 28px rgba(255,0,0,0.9);pointer-events:none;z-index:9;letter-spacing:3px;`;
-        w.textContent='⚠  BOSS  APPROACHING  ⚠';
-        document.getElementById('game-container').appendChild(w);
-        let op=0,show=true;
-        const blink=setInterval(()=>{w.style.opacity=show?'1':'0';show=!show;op++;if(op>12){clearInterval(blink);w.remove();}},200);
-    }
 
     _spawnPowerup(x,y,enemyType='scout'){
         if(this.powerups.length>=3)return;
@@ -1007,13 +1049,17 @@ class Game {
                 return;
             }
         }
-        // 其余道具
-        let type;
-        const r=Math.random();
-        if(p.hp<p.maxHp-5&&r<0.30)type='HEALTH';
-        else if(p.supports<3&&r<0.28)type='SUPPORT';
-        else{const baseTypes=['SHIELD','SUPPORT','HEALTH','SPEED'];type=baseTypes[randInt(0,baseTypes.length-1)];}
-        if(this.powerups.some(pu=>pu.type===type))return;
+        // 其余道具：只选玩家还需要的（过滤已满/已激活）
+        const eligible=[];
+        if(p.hp<p.maxHp-2)  eligible.push('HEALTH');
+        if(!p.speedBoost)    eligible.push('SPEED');
+        if(p.shield<p.maxShield-10) eligible.push('SHIELD');
+        if(p.supports<5)     eligible.push('SUPPORT');
+        // 过滤掉场上已有的同类道具
+        const onScreen=new Set(this.powerups.map(pu=>pu.type));
+        const choices=eligible.filter(t=>!onScreen.has(t));
+        if(choices.length===0)return;
+        const type=choices[randInt(0,choices.length-1)];
         this.powerups.push(new Powerup(x,y,type));
     }
 
@@ -1050,14 +1096,6 @@ class Game {
         this.audio.powerup(); this._triggerFlash('#ffbe0b',0.12); this._hud();
     }
 
-    _bossDefeated(){
-        this.bossActive=false; this.bossSpawned=false;
-        this.audio.levelUp();
-        this._triggerShake(8); this._triggerFlash('#00f5ff',0.28);
-        this._showNotif('✦  BOSS DEFEATED  ✦','#00f5ff');
-        this._hud();
-    }
-
     // ── UPDATE ──
     _update(){
         if(this.state!=='playing')return;
@@ -1080,18 +1118,11 @@ class Game {
         if(this.player._laserFireAudio){this.player._laserFireAudio=false;this.audio.laserFire();}
 
         this.gameTime++;
-        if(!this.bossSpawned&&!this.bossActive&&this.gameTime>=5400)this._spawnBoss();
-
-        if(!this.bossActive){
-            this.waveT++;
-            const tSec=this.gameTime/60;
-            const period=tSec<20?120:tSec<50?100:85;
-            const waveSize=tSec<10?1:tSec<30?2:3;
-            if(this.waveT>=period){
-                this.waveT=0;
-                for(let _i=0;_i<waveSize;_i++)this._spawnEnemy();
-            }
-        }
+        this.waveT++;
+        const tSec=this.gameTime/60;
+        const period=tSec<20?120:tSec<50?100:85;
+        const waveSize=tSec<10?1:tSec<30?2:3;
+        if(this.waveT>=period){ this.waveT=0; for(let _i=0;_i<waveSize;_i++)this._spawnEnemy(); }
 
         // 僚机更新
         this.allies=this.allies.filter(a=>{
@@ -1101,8 +1132,26 @@ class Game {
         this.bullets=this.bullets.filter(b=>{
             if(b instanceof GuidedMissile)b.update(this.enemies); else b.update(); return b.active;
         });
-        this.eBullets=this.eBullets.filter(b=>{b.update();return b.active;});
-        if(this.eBullets.length>80)this.eBullets=this.eBullets.slice(-70);
+        const _splitNew=[], _fieldNew=[];
+        this.eBullets=this.eBullets.filter(b=>{
+            b.update(this.player);
+            if(b.willSplit&&b.splitTimer<=0&&!b.splitDone&&b.active){
+                b.splitDone=true;
+                const spd=4;
+                [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sdx,sdy])=>
+                    _splitNew.push(new EnemyBullet(b.x,b.y,sdx*spd,sdy*spd,b.dmg,'splitchild')));
+                return false;
+            }
+            if(b.wtype==='fieldproj'&&b.deployAtAge>0&&b.age>=b.deployAtAge){
+                _fieldNew.push(new EField(b.x-b.eFieldW/2,b.y-b.eFieldH/2,b.eFieldW,b.eFieldH));
+                return false;
+            }
+            return b.active;
+        });
+        if(_splitNew.length>0)this.eBullets.push(..._splitNew);
+        for(const f of _fieldNew)this.eFields.push(f);
+        this.eFields=this.eFields.filter(f=>{f.update();return f.active;});
+        if(this.eBullets.length>100)this.eBullets=this.eBullets.slice(-80);
         // ── 激光穿透伤害 (Lv.5+) ──
         if(this.player.fireLevel>=5&&this.player.laserState==='firing'){
             const pcx=this.player.x+this.player.w/2;
@@ -1114,9 +1163,9 @@ class Game {
                 if(ecx>pcx-bw&&ecx<pcx+bw&&e.y+e.h>0){
                     e.hitFlash=Math.max(e.hitFlash,3);
                     if(e.hit(lpf)){
-                        const et=e.type==='boss'?'boss':e.type==='cruiser'||e.type==='carrier'||e.type==='bomber'?'large':e.type==='fighter'||e.type==='elite'?'medium':'small';
+                        const et=e.type==='cruiser'||e.type==='carrier'||e.type==='bomber'?'large':e.type==='fighter'||e.type==='elite'?'medium':'small';
                         explode(e.x+e.w/2,e.y+e.h/2,et,this.particles);
-                        (et==='large'||et==='boss')?this.audio.explodeLarge():this.audio.explodeSmall();
+                        et==='large'?this.audio.explodeLarge():this.audio.explodeSmall();
                         this.score+=e.score*this.difficulty; this.kills++;
                         this.stats.killsByType[e.type]=(this.stats.killsByType[e.type]||0)+1;
                         this.stats.damageDealt+=e.maxHp;
@@ -1127,12 +1176,10 @@ class Game {
         }
 
         // 敌机更新 + 处理母舰生成队列
-        let bossAlive=false;
         const newE=[];
         this.enemies=this.enemies.filter(e=>{
             if(!e.active)return false;
             e.update(this.eBullets,this.player);
-            if(e.type==='boss'&&e.active)bossAlive=true;
             if(e.spawnQueue.length>0){
                 e.spawnQueue.forEach(s=>newE.push(new Enemy(s.x,e.y+e.h+5,s.type)));
                 e.spawnQueue=[];
@@ -1141,7 +1188,37 @@ class Game {
         });
         this.enemies.push(...newE);
 
-        if(this.bossActive&&!bossAlive)this._bossDefeated();
+        // 母舰激光伤害（直接扣血，不触发无敌帧）
+        for(const e of this.enemies){
+            if(e.type==='carrier'&&e.active&&e.eLaserState==='firing'&&this.player.alive&&this.frame%3===0){
+                const ecx=e.x+e.w/2;
+                if(this.player.x<ecx+12&&this.player.x+this.player.w>ecx-12){
+                    this.player.hp=Math.max(0,this.player.hp-1);
+                    this.player.hitFlash=3; this._triggerShake(2);
+                    this.stats.damageTaken+=1; this._hud();
+                    if(this.player.hp<=0&&this.player.alive){
+                        this.player.alive=false;
+                        explode(this.player.x+this.player.w/2,this.player.y+this.player.h/2,'large',this.particles);
+                        this.audio.explodeLarge(); this._gameOver();
+                    }
+                }
+            }
+        }
+
+        // 电场伤害
+        for(const f of this.eFields){
+            if(!f.active||!this.player.alive)continue;
+            if(this.player.x<f.x+f.w&&this.player.x+this.player.w>f.x&&
+               this.player.y<f.y+f.h&&this.player.y+this.player.h>f.y&&this.frame%5===0){
+                this.player.hp=Math.max(0,this.player.hp-1);
+                this.player.hitFlash=3; this.stats.damageTaken+=1; this._hud();
+                if(this.player.hp<=0&&this.player.alive){
+                    this.player.alive=false;
+                    explode(this.player.x+this.player.w/2,this.player.y+this.player.h/2,'large',this.particles);
+                    this.audio.explodeLarge(); this._gameOver();
+                }
+            }
+        }
 
         // 玩家子弹 vs 敌机（每帧最多播一次击中音，防止Audio API过载）
         let _hitAudio=false;
@@ -1154,9 +1231,9 @@ class Game {
                     if(!_hitAudio){this.audio.hit();_hitAudio=true;}
                     this.stats.shotsHit++;
                     if(e.hit(b.dmg)){
-                        const et=e.type==='boss'?'boss':e.type==='cruiser'||e.type==='carrier'||e.type==='bomber'?'large':e.type==='fighter'||e.type==='elite'?'medium':'small';
+                        const et=e.type==='cruiser'||e.type==='carrier'||e.type==='bomber'?'large':e.type==='fighter'||e.type==='elite'?'medium':'small';
                         explode(e.x+e.w/2,e.y+e.h/2,et,this.particles);
-                        (et==='large'||et==='boss')?this.audio.explodeLarge():this.audio.explodeSmall();
+                        et==='large'?this.audio.explodeLarge():this.audio.explodeSmall();
                         this.score+=e.score*this.difficulty; this.kills++;
                         this.stats.killsByType[e.type]=(this.stats.killsByType[e.type]||0)+1;
                         this.stats.damageDealt+=e.maxHp;
@@ -1255,9 +1332,30 @@ class Game {
         this.particles.forEach(p=>p.draw());
         this.enemies.forEach(e=>e.draw());
 
-        // Boss HP条
-        const boss=this.enemies.find(e=>e.type==='boss'&&e.active);
-        if(boss)this._drawBossHPBar(boss);
+        // 电场渲染
+        this.eFields.forEach(f=>f.draw());
+
+        // 母舰激光渲染
+        for(const e of this.enemies){
+            if(e.type==='carrier'&&e.active){
+                const ecx=e.x+e.w/2;
+                if(e.eLaserState==='charging'){
+                    const prog=1-(e.eLaserTimer/e.eLaserChargeDur);
+                    ctx.save(); ctx.globalAlpha=0.5+prog*0.4;
+                    ctx.strokeStyle='#aa88ff'; ctx.lineWidth=2; ctx.shadowColor='#aa88ff'; ctx.shadowBlur=18;
+                    ctx.beginPath(); ctx.arc(ecx,e.y+e.h,6+prog*12,0,Math.PI*2); ctx.stroke();
+                    ctx.restore(); ctx.globalAlpha=1;
+                } else if(e.eLaserState==='firing'){
+                    const prog=e.eLaserTimer/e.eLaserFireDur;
+                    ctx.save(); ctx.globalAlpha=0.85*prog;
+                    ctx.shadowColor='#cc88ff'; ctx.shadowBlur=30;
+                    const lg=ctx.createLinearGradient(ecx-10,0,ecx+10,0);
+                    lg.addColorStop(0,'transparent'); lg.addColorStop(0.5,'#dd88ff'); lg.addColorStop(1,'transparent');
+                    ctx.fillStyle=lg; ctx.fillRect(ecx-10,e.y+e.h,20,canvas.height-(e.y+e.h));
+                    ctx.restore(); ctx.globalAlpha=1;
+                }
+            }
+        }
 
         this.allies.forEach(a=>a.draw());
 
@@ -1319,9 +1417,11 @@ class Game {
             if(!(b instanceof GuidedMissile))ctx.fillRect(b.x+1,b.y,2,4);
         }
 
-        // ── 批量绘制敌机子弹（纯矩形，无arc/save/restore）──
+        // ── 批量绘制敌机子弹（矩形子弹分组）──
         const _ec=Object.create(null);
+        const _specialBullets=[];
         for(const b of this.eBullets){
+            if(b.isDiamond||b.isMissile){_specialBullets.push(b);continue;}
             if(!_ec[b.color])_ec[b.color]=[];
             _ec[b.color].push(b);
         }
@@ -1330,7 +1430,11 @@ class Game {
             for(const b of _ec[color])ctx.fillRect(b.x,b.y,b.w,b.h);
         }
         ctx.fillStyle='rgba(255,255,255,0.72)';
-        for(const b of this.eBullets)ctx.fillRect(b.x+b.w/2-1.5,b.y+b.h/2-1.5,3,3);
+        for(const b of this.eBullets){
+            if(!b.isDiamond&&!b.isMissile)ctx.fillRect(b.x+b.w/2-1.5,b.y+b.h/2-1.5,3,3);
+        }
+        // 特殊形状子弹
+        for(const b of _specialBullets)b.drawSpecial();
 
         this.powerups.forEach(p=>p.draw());
 
@@ -1360,16 +1464,6 @@ class Game {
         if(shake>0.5)ctx.restore();
     }
 
-    _drawBossHPBar(boss){
-        const bw=canvas.width-40,bh=16,bx=20,by=canvas.height-34,pct=boss.hp/boss.maxHp;
-        ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(bx-2,by-2,bw+4,bh+4);
-        ctx.fillStyle=this._bossHPGrad||'#ff5500'; ctx.fillRect(bx,by,bw*pct,bh);
-        ctx.strokeStyle='#ff0000'; ctx.lineWidth=1.5; ctx.strokeRect(bx,by,bw,bh);
-        ctx.fillStyle='#fff'; ctx.font='bold 10px "Orbitron",monospace';
-        ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(`BOSS  ${boss.hp} / ${boss.maxHp}`,canvas.width/2,by+bh/2);
-    }
-
     _updateStatsPanel(){
         const g=id=>document.getElementById(id);
         const p=this.player, st=this.stats;
@@ -1389,25 +1483,8 @@ class Game {
         const scEl=g('sp-score'); if(scEl)scEl.textContent=this.score.toLocaleString();
         const lvEl=g('sp-level'); if(lvEl){const _gt=this.gameTime;lvEl.textContent=String(Math.floor(_gt/3600)).padStart(2,'0')+':'+String(Math.floor((_gt%3600)/60)).padStart(2,'0');}
         const klEl=g('sp-kills'); if(klEl)klEl.textContent=this.kills;
-        // Boss HP或下次Boss倒计时
-        const bossRow=g('sp-boss-row'), bossTimer=g('sp-boss-timer');
-        const boss=this.enemies.find(e=>e.type==='boss'&&e.active);
-        if(bossRow){
-            if(boss){ bossRow.style.display='flex'; if(bossTimer)bossTimer.style.display='none';
-                const bb=g('sp-boss-bar'); if(bb)bb.style.width=(boss.hp/boss.maxHp*100)+'%';
-                const bv=g('sp-boss-hp'); if(bv)bv.textContent=boss.hp+'/'+boss.maxHp;
-            } else { bossRow.style.display='none'; }
-        }
-        if(bossTimer&&!boss&&!this.bossSpawned){
-            const remaining=Math.max(0,5400-this.gameTime);
-            bossTimer.style.display=''; bossTimer.textContent='BOSS IN '+Math.ceil(remaining/60)+'s';
-        } else if(bossTimer&&this.bossSpawned&&!boss){
-            bossTimer.style.display=''; bossTimer.textContent='BOSS DEFEATED';
-        } else if(bossTimer){
-            bossTimer.style.display='none';
-        }
         // Kill log
-        const types=['scout','fighter','cruiser','interceptor','bomber','elite','carrier','boss'];
+        const types=['scout','fighter','cruiser','interceptor','bomber','elite','carrier'];
         const maxK=Math.max(1,...types.map(t=>st.killsByType[t]||0));
         types.forEach(t=>{ const k=st.killsByType[t]||0; const kv=g('kv-'+t); const kb=g('kb-'+t); if(kv)kv.textContent=k; if(kb)kb.style.width=(k/maxK*100)+'%'; });
         // Combat
