@@ -29,12 +29,6 @@
                     <span class="key">P</span> 暂停
                 </div>
                 <button id="startBtn" class="btn-primary">开始游戏</button>
-                <div class="difficulty-select">
-                    <span class="diff-label">难度：</span>
-                    <button class="diff-btn active" data-diff="1">普通</button>
-                    <button class="diff-btn" data-diff="2">困难</button>
-                    <button class="diff-btn" data-diff="3">地狱</button>
-                </div>
             </div>
         </div>
 
@@ -46,8 +40,8 @@
                     <span id="scoreDisplay" class="hud-value">0</span>
                 </div>
                 <div class="hud-item">
-                    <span class="hud-label">LEVEL</span>
-                    <span id="levelDisplay" class="hud-value">1</span>
+                    <span class="hud-label">TIME</span>
+                    <span id="levelDisplay" class="hud-value" style="font-size:14px;letter-spacing:1px;">00:00</span>
                 </div>
                 <div class="hud-item">
                     <span class="hud-label">SUPPORT</span>
@@ -90,8 +84,8 @@
                         <span id="finalScore">0</span>
                     </div>
                     <div class="stat-row">
-                        <span>到达关卡</span>
-                        <span id="finalLevel">1</span>
+                        <span>游戏时长</span>
+                        <span id="finalLevel">00:00</span>
                     </div>
                     <div class="stat-row">
                         <span>击毁敌机</span>
@@ -103,11 +97,6 @@
             </div>
         </div>
 
-        <!-- Level Up Notification -->
-        <div id="levelUpNotif" class="level-notif hidden">
-            <div class="level-notif-text">LEVEL UP!</div>
-            <div class="level-notif-num" id="levelNotifNum"></div>
-        </div>
     </div>
 
     <script src="game.js"></script>
@@ -141,7 +130,7 @@
         <div class="sp-title">MISSION</div>
         <div class="sp-row"><span class="sp-label">TIME</span><span class="sp-val sp-highlight" id="sp-time">00:00</span></div>
         <div class="sp-row"><span class="sp-label">SCORE</span><span class="sp-val sp-gold" id="sp-score">0</span></div>
-        <div class="sp-row"><span class="sp-label">LEVEL</span><span class="sp-val" id="sp-level">1</span></div>
+        <div class="sp-row"><span class="sp-label">G.TIME</span><span class="sp-val" id="sp-level">00:00</span></div>
         <div class="sp-row"><span class="sp-label">KILLS</span><span class="sp-val" id="sp-kills">0</span></div>
         <div id="sp-boss-row" style="display:none" class="sp-row">
             <span class="sp-label sp-red">BOSS HP</span>
