@@ -1,170 +1,163 @@
-# 雷霆战机 — Thunder Strike v6.0
+# 雷霆战机 v9.0
 
-A canvas-based vertical scrolling shooter built with vanilla HTML5/JS. No frameworks, no dependencies.
-
----
-
-## Controls / 操作
-
-| Key | Action |
-|-----|--------|
-| `↑ ↓ ← →` / `W A S D` | Move |
-| `SPACE` | Fire (auto-fires, no hold required) |
-| `B` | Call support wingmen |
-| `P` | Pause / Resume |
+基于 HTML5 Canvas 的纵版射击游戏，纯原生 JS/HTML，无任何外部依赖。
 
 ---
 
-## Game Flow / 游戏节奏
+## 操作方式
 
-The game is time-driven — no levels. Enemy types unlock progressively over 90 seconds, then the Boss spawns.
+| 按键 | 功能 |
+|------|------|
+| `↑ ↓ ← →` / `W A S D` | 移动英雄机 |
+| `B` | 呼叫僚机支援 |
+| `P` | 暂停 / 继续 |
 
-| Time | New Enemy Type |
-|------|---------------|
-| 0 s | Scout only |
-| 5 s | Fighter added |
-| 10 s | Interceptor added |
-| 15 s | Elite added |
-| 25 s | Cruiser added |
-| 40 s | Bomber added |
-| 60 s | Carrier added |
-| **90 s** | **Boss spawns** |
-
-Wave rhythm:
-- 0–20 s: 1 enemy per wave, every 120 frames (~2 s)
-- 20–50 s: 2 enemies per wave, every 100 frames (~1.7 s)
-- 50 s+: 3 enemies per wave, every 85 frames (~1.4 s)
-- Max 12 enemies on screen simultaneously
-
-After the Boss is defeated, waves resume (using the 60 s+ spawn table) — the game continues indefinitely.
+> 英雄机自动持续开火，无需按键。
 
 ---
 
-## Enemy Roster / 敌机档案
+## 游戏节奏
 
-| Type | HP | Speed | Score | Tier | Behavior |
-|------|----|-------|-------|------|----------|
-| Scout 侦察机 | 2 | 1.0–2.0 | 100 | Lv1 | Sine-wave drift |
-| Fighter 战斗机 | 8 | 0.6–1.0 | 260 | Lv2 | Tracks player X, strafes |
-| Interceptor 拦截机 | 4 | 1.4–2.2 | 150 | Lv2 | Fast horizontal sweeps, dashes toward player |
-| Elite 精英机 | 12 | 0.5–0.9 | 380 | Lv3 | Aggressive tracking, close confront range |
-| Cruiser 巡洋舰 | 20 | 0.35–0.65 | 520 | Lv3 | Slow drift, spread shot ×3 |
-| Bomber 轰炸机 | 32 | 0.25–0.5 | 450 | Lv4 | Very slow, 5-bullet cluster burst |
-| Carrier 母舰 | 44 | 0.18–0.35 | 900 | Lv4 | Deploys scouts, slow arc |
-| Boss | 300 | 0.3 | 7000 | Lv5 | 3-phase attack, 100×79 px |
+游戏由时间驱动，无关卡概念。敌机种类随时间解锁，难度线性递增。
 
-**Confront behavior** (Lv2+): Instead of stopping dead, non-scout enemies enter a confront zone above the player and strafe horizontally with type-specific speed and direction-change timing. The hard floor prevents any enemy from flying past the player.
+| 时间 | 新增敌机 |
+|------|---------|
+| 0 s | 侦察机 |
+| 5 s | 战斗机 |
+| 10 s | 拦截机 |
+| 15 s | 精英机 |
+| 25 s | 巡洋舰 |
+| 40 s | 轰炸机 |
+| 60 s | 母舰 |
 
-Confront zone offsets (distance above player):
-- Fighter: 190 px | Interceptor: 130 px | Elite: 170 px
-- Cruiser: 240 px | Bomber: 270 px | Carrier: 300 px
-
----
-
-## Boss Fight / Boss战
-
-| Phase | HP Range | Fire Rate | Attack Pattern |
-|-------|----------|-----------|---------------|
-| 1 | 300–150 | 36 frames | 5-bullet horizontal spread |
-| 2 | 150–75 | 30 frames | 5-bullet aimed spread |
-| 3 | 75–0 | 18 frames | 7-bullet full circle + 1 heavy aimed bullet |
-
-Boss movement: cycles through 4 positions (left edge, right edge, center, player-tracking) every 220 frames.
+波次节奏：
+- 0–20 s：每波 1 架，间隔 ~120 帧（2 s）
+- 20–50 s：每波 2 架，间隔 ~100 帧（1.7 s）
+- 50 s+：每波 3 架，间隔 ~85 帧（1.4 s）
+- 最多同屏 12 架敌机
 
 ---
 
-## Weapon System / 武器系统
+## 敌机档案
 
-| Level | Weapon | Description |
-|-------|--------|-------------|
-| Lv0 | Main Gun | Single front shot, fires every 8 frames |
-| Lv1 | Side Cannon 副炮 | +2 diagonal shots |
-| Lv2 | Swarm 蜂群散射 | 6 small bullets (2×10 px, dmg 0.1/ea) in periodic bursts: 0.1 s on / 0.3 s off |
-| Lv3 | Missile 追踪导弹 | 1 homing missile (dmg 8), cooldown 120 frames |
-| Lv4 | Dual Missile 双导弹 | 2 homing missiles, faster reload |
-| Lv5 | Laser 激光炮 | Full-screen piercing beam, 6 px wide, cycles charge→fire |
-| Lv6 | Overclock MAX 超频 | All weapons enhanced; laser 12 px; swarm fires every frame |
+| 类型 | 血量 | 速度 | 得分 | 等级 | 行为特征 |
+|------|------|------|------|------|---------|
+| 侦察机 | 2 | 1.0–2.0 | 100 | Lv1 | 正弦波左右漂移，瞄准射击 |
+| 战斗机 | 8 | 0.6–1.0 | 260 | Lv2 | 追踪玩家X轴，三发精准扇射 |
+| 拦截机 | 4 | 1.4–2.2 | 150 | Lv2 | 高速左右横扫，5连发瞄准追踪 |
+| 精英机 | 12 | 0.5–0.9 | 380 | Lv3 | 近距离对峙，7弹扇形双倍伤害 |
+| 巡洋舰 | 20 | 0.35–0.65 | 520 | Lv3 | 缓慢漂移，7弹瞄准扇射+加强伤害 |
+| 轰炸机 | **64** | 0.25–0.5 | 450 | Lv4 | **体积变大（68×56）**，每5s释放一次大圆形电场，常规射击发分裂炮（6向） |
+| 母舰 | **88** | 0.18–0.35 | 900 | Lv4 | **体积变大（84×70）**，双导弹齐射+三路分裂炮，释放侦察机 |
 
-Weapon upgrade is obtained via FIREPOWER powerups dropped by enemies.
+**对峙模式**（Lv2+）：进入玩家上方特定距离后，敌机停止下降并横向走位，绝不越过玩家。
 
----
-
-## Powerup System / 道具系统
-
-### Drop Rates by Enemy Tier
-
-| Enemy Tier | Enemies | Drop Rate |
-|-----------|---------|-----------|
-| Lv1 | Scout | 3% |
-| Lv2 | Fighter, Interceptor | 10% |
-| Lv3 | Elite, Cruiser | 30% |
-| Lv4 | Bomber, Carrier | 50% |
-| Lv5 | Boss | 100% |
-
-### Powerup Types
-
-| Icon | Type | Effect |
-|------|------|--------|
-| ⊕ | FIREPOWER | Weapon level +1 (50% of successful drops) |
-| ◈ | SHIELD | Full shield restore |
-| ✈ | SUPPORT +1 | Gain 1 support charge |
-| ♥ | HEALTH +3 | Restore 3 HP |
-| ▶ | SPEED | Speed boost for 6 s |
-
-Rules:
-- Max 3 powerups active on screen
-- Only 1 of each type on screen at once
-- FIREPOWER has a 5 s (300-frame) cooldown after being collected
-- FIREPOWER only spawns if player fireLevel < 6 and no other FIREPOWER is active
+对峙区距离（距玩家上方）：
+- 战斗机：190 px　拦截机：130 px　精英机：170 px
+- 巡洋舰：240 px　轰炸机：270 px　母舰：300 px
 
 ---
 
-## Player Stats / 玩家参数
+## 陨石系统
 
-| Stat | Value |
-|------|-------|
-| HP | 30 |
-| Speed | 5 px/frame |
-| Support charges | 3 (default) |
-| Shield | 100 (depletes with hits, no passive regen) |
-| Invincibility after hit | ~90 frames (0.5 s) |
-
-Support wingmen: 2 allies spawn beside the player, each with HP=8, firing every 20 frames (dmg 1). Duration: 720 frames (~12 s).
+- 每隔 10~20 秒随机生成一颗陨石，从屏幕上方落下
+- 陨石有血条，可被子弹和激光击破
+- 击破后 **80% 概率强制掉落道具**（优先玩家当前所需）
+- 陨石碰撞玩家造成 3 点伤害
 
 ---
 
-## Performance Notes / 性能实现
+## 武器系统
 
-- **Batch bullet rendering**: All player and enemy bullets grouped by color, drawn with single `fillStyle` set per color group — eliminates per-bullet state changes.
-- **Pre-rendered scanlines**: Static scanline overlay rendered once to an offscreen canvas, reused each frame with `drawImage`.
-- **Audio hit deduplication**: `audio.hit()` called at most once per frame regardless of swarm bullet count, preventing Audio API oscillator overload.
-- **Boss HP bar gradient cached**: Linear gradient object created once when boss spawns, reused each frame.
-- **Boss body shadow optimized**: Decorative `stroke()` rendered with `shadowBlur=0`; hit-flash `shadowBlur` reduced from 26→16.
-- **Enemy bullet cap**: Hard limit of 80 on-screen enemy bullets.
-- **Particle cap**: 400 particles; trimmed to 320 when exceeded.
-- **Stars**: 120 procedural stars with per-instance speed/alpha/phase.
-
----
-
-## Change History / 修改历史
-
-| Version | Summary |
-|---------|---------|
-| v1.0 | Initial: 7 enemy types, 5 fire levels, support skill |
-| v2.0 | Bigger map, 10 lives, carrier enemy |
-| v3.0 | 30 HP, auto-attack, ally HP ×2, entry animations |
-| v4.0 | Unified fire system, 6-level weapons, swarm periodic burst, laser MAX width ×2 |
-| v4.1 | Swarm bullets smaller (2×10), enemy fire rate reduced, boss phase 2/3 fire rates softened, eBullets cap added, boss body shadow optimized |
-| **v5.0** | **Time-driven wave system (90 s → boss), single medium difficulty, dynamic enemy confront strafing, tier-based powerup rates (3/10/30/50/100%), boss audio freeze fixed (per-frame audio dedup), level system removed** |
+| 等级 | 武器 | 说明 |
+|------|------|------|
+| Lv0 | 主炮 | 单发直射，8 帧/发 |
+| Lv1 | 副炮 | 主炮两侧各增加 1 门斜向炮 |
+| Lv2 | 蜂群散射 | 6 发小弹周期性连射（0.1 s 发射 / 0.3 s 间隔） |
+| Lv3 | 追踪导弹 | 1 枚追踪导弹（伤害 8），冷却 120 帧，**追踪 5 s 后失效** |
+| Lv4 | 双导弹 | 2 枚追踪导弹同时发射，装填更快 |
+| Lv5 | 激光炮 | 充能 1 s → 发射 4 s，**伤害随时间递增（0.2→1.5/帧），宽度从 6 px 扩展至 17 px** |
+| Lv6 | 超频 MAX | 所有武器强化：激光宽度起步翻倍并继续扩展，蜂群每帧发射；**可重复获得以刷新持续时间** |
 
 ---
 
-## File Structure
+## 道具系统
+
+### 敌机爆率
+
+| 等级 | 敌机类型 | 爆率 |
+|------|---------|------|
+| Lv1 | 侦察机 | 3% |
+| Lv2 | 战斗机、拦截机 | 10% |
+| Lv3 | 精英机、巡洋舰 | 30% |
+| Lv4 | 轰炸机、母舰 | 50% |
+
+陨石击破：**80% 强制爆率**
+
+### 道具类型
+
+| 图标 | 类型 | 效果 |
+|------|------|------|
+| ⊕ | 火力升级 | 武器等级 +1（爆率中 50% 概率为此道具） |
+| ◈ | 护盾 | 激活护盾，**免疫伤害 5 秒** |
+| ✈ | 支援 +1 | 获得 1 次呼叫僚机机会（上限 5） |
+| ♥ | 血包 | 恢复最大血量的 **33%** |
+| ▶ | 加速 | 移动速度提升 50%，持续 6 s |
+
+规则：
+- 同屏最多 3 个道具
+- 同类道具同屏只存在 1 个
+- 火力升级道具有 5 s（300 帧）冷却
+- **Lv6满级时仍可继续生成超频道具（可重复获得刷新持续时间）**
+
+---
+
+## 英雄机参数
+
+| 参数 | 数值 |
+|------|------|
+| 血量 | 100（血条显示） |
+| 速度 | 5 px/帧（加速时 ×1.5） |
+| 支援次数 | 3（初始） |
+| 护盾 | 100（受击消耗，无自动回复） |
+| 受击无敌时间 | ~140 帧（2.3 s） |
+
+**僚机**：呼叫后两侧各生成 1 架，血量 8，每 20 帧发射 1 发（伤害 1），持续 ~12 s。
+
+---
+
+## 性能实现
+
+- **子弹批量渲染**：按颜色分组绘制，减少 `fillStyle` 切换次数
+- **预渲染扫描线**：扫描线贴图一次生成，每帧用 `drawImage` 复用
+- **音效去重**：每帧击中音效最多触发一次，防止 Audio API 过载
+- **敌机子弹上限**：同屏最多 80 发敌机子弹
+- **粒子上限**：400 粒子，超限截取至 320
+
+---
+
+## 更新历史
+
+| 版本 | 主要更新 |
+|------|---------|
+| v1.0 | 初始版本：7种敌机、5级武器、支援技能 |
+| v2.0 | 扩大地图、10条命、母舰敌机 |
+| v3.0 | 30条命、自动攻击、僚机HP×2、入场动画 |
+| v4.0 | 统一火力系统、6级武器、蜂群周期射击、激光MAX宽度×2 |
+| v5.0 | 时间驱动波次、动态对峙走位、分级道具爆率 |
+| v6.0 | 移除Boss、渐变敌机生成、中文面板、智能道具、9种武器系统 |
+| v7.0 | 陨石系统、拦截机左右移动修复、圆形电场碰撞修复、敌机贴图修正、攻击频率减半+精准化 |
+| v8.0 | 轰炸机电场独立计时（5s/4s）、追踪导弹5s失效、敌机对峙改为屏幕上2/3自由巡逻 |
+| **v9.0** | **Lv4敌机体积/血量翻倍、敌机跟踪导弹5s失效、激光频率加快+伤害/宽度随时间递增、吃道具英雄机切换形态、超频可重复获得** |
+
+---
+
+## 文件结构
 
 ```
 plane/
-├── index.html   — Game canvas + HUD + stats panel
-├── game.js      — All game logic (~1450 lines)
-├── style.css    — Styling for game container, HUD, stats panel
-└── README.md    — This file
+├── index.html   — 游戏画布、HUD 界面、实时数据面板
+├── game.js      — 全部游戏逻辑（~1600 行）
+├── style.css    — 游戏容器、HUD、数据面板样式
+└── README.md    — 本文件
 ```
