@@ -8,7 +8,12 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git branch:*)",
-      "Bash(git remote:*)"
+      "Bash(git remote:*)",
+      "Bash(git push:*)",
+      "Bash(node --check \"C:\\\\Users\\\\15716\\\\Desktop\\\\ccTest\\\\plane\\\\game.js\")",
+      "Bash(node --check C:/Users/15716/Desktop/ccTest/plane/game.js)",
+      "Read(//c/Users/15716/**)",
+      "Bash(node:*)"
     ]
   }
 }
