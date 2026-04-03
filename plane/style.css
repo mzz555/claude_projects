@@ -530,3 +530,30 @@ body {
 }
 
 .kv-boss { color: rgba(255, 51, 102, 0.8); }
+
+/* ─── 弹珠敌机生成器面板 ─── */
+#marble-panel {
+    align-self: flex-start;
+    background: #080f08;
+    border: 1px solid rgba(0, 255, 102, 0.35);
+    box-shadow: 0 0 30px rgba(0, 255, 102, 0.12), 0 0 60px rgba(0, 0, 0, 0.6);
+    flex-shrink: 0;
+}
+
+.marble-title {
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #00ff66;
+    text-shadow: 0 0 8px #00ff66;
+    background: rgba(0, 255, 102, 0.05);
+    border-bottom: 1px solid rgba(0, 255, 102, 0.2);
+}
+
+#marbleCanvas {
+    display: block;
+}

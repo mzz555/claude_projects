@@ -8,6 +8,393 @@ const ctx    = canvas.getContext('2d');
 canvas.width  = 640;
 canvas.height = 800;
 
+// ══════════════════════════════════════════════════════════════════
+//  弹珠敌机生成系统 — Marble Enemy Panel
+// ══════════════════════════════════════════════════════════════════
+const MB_G=0.38,MB_MXSP=34,MB_BW=0.88,MB_BO=0.90,MB_BF=0.82;
+const MB_FSP=13.5,MB_TRL=14,MB_GRN='#00ff66',MB_GD='#009944';
+const MB_W=700,MB_H=500,MB_TH=255,MB_BH=245,MB_TGH=40;
+const MB_TTGY=MB_TH-MB_TGH;    // 215: 上容器目标区y
+const MB_BTGY=MB_H-MB_TGH;     // 460: 下容器目标区y
+const MB_STPY=MB_TTGY-28;      // 187: 上容器扫描器y
+const MB_SBTY=MB_BTGY-28;      // 432: 下容器扫描器y
+const MB_OMXT=MB_STPY-14-6;    // 167: 上容器障碍物最大y
+const MB_OMXB=MB_SBTY-13-6;    // 413: 下容器障碍物最大y
+
+class MbV2{constructor(x=0,y=0){this.x=x;this.y=y;}add(v){return new MbV2(this.x+v.x,this.y+v.y);}scale(s){return new MbV2(this.x*s,this.y*s);}dot(v){return this.x*v.x+this.y*v.y;}len(){return Math.sqrt(this.x*this.x+this.y*this.y);}clone(){return new MbV2(this.x,this.y);}}
+
+class MbBall{
+    constructor(x,y,vx,vy,cont='top'){
+        this.pos=new MbV2(x,y);this.vel=new MbV2(vx,vy);
+        this.r=7;this.trail=[];this.state='active';this.cont=cont;this.hitCD=0;this.age=0;
+    }
+    update(obs,swps,tb,bb){
+        if(this.state==='dead')return;
+        this.age++;this.vel.y+=MB_G;
+        const sp=this.vel.len();if(sp>MB_MXSP){const f=MB_MXSP/sp;this.vel.x*=f;this.vel.y*=f;}
+        this.pos.x+=this.vel.x;this.pos.y+=this.vel.y;
+        this.trail.push(this.pos.clone());if(this.trail.length>MB_TRL)this.trail.shift();
+        if(this.hitCD>0)this.hitCD--;
+        const b=this.cont==='top'?tb:bb;this._wb(b);
+        for(const o of obs)if(o.cont===this.cont)this._ob(o.cx,o.cy,o.half,o.rot);
+        for(const sw of swps)if(sw.cont===this.cont)for(const c of sw.cells)this._ob(c.x,c.y,sw.ch,sw.rot);
+    }
+    _wb(b){const r=this.r;
+        if(this.pos.x-r<b.left){this.pos.x=b.left+r;this.vel.x=Math.abs(this.vel.x)*MB_BW;}
+        if(this.pos.x+r>b.right){this.pos.x=b.right-r;this.vel.x=-Math.abs(this.vel.x)*MB_BW;}
+        if(this.pos.y-r<b.top){this.pos.y=b.top+r;this.vel.y=Math.abs(this.vel.y)*MB_BW;}
+        if(this.pos.y+r>b.bottom){this.pos.y=b.bottom-r;this.vel.y=-Math.abs(this.vel.y)*MB_BF;this.vel.x*=0.92;}
+    }
+    _ob(cx,cy,h,ang){
+        const dx=this.pos.x-cx,dy=this.pos.y-cy;
+        const ca=Math.cos(ang),sa=Math.sin(ang);
+        const p0=dx*ca+dy*sa,p1=-dx*sa+dy*ca;
+        const o0=h+this.r-Math.abs(p0),o1=h+this.r-Math.abs(p1);
+        if(o0<=0||o1<=0)return;
+        let nx,ny,pen;
+        if(o0<o1){const s=p0>=0?1:-1;nx=s*ca;ny=s*sa;pen=o0;}
+        else{const s=p1>=0?1:-1;nx=-s*sa;ny=s*ca;pen=o1;}
+        this.pos.x+=nx*pen;this.pos.y+=ny*pen;
+        const dt=this.vel.x*nx+this.vel.y*ny;
+        this.vel.x=(this.vel.x-2*dt*nx)*MB_BO;this.vel.y=(this.vel.y-2*dt*ny)*MB_BO;
+    }
+    draw(c){
+        if(this.state==='dead')return;
+        for(let i=0;i<this.trail.length;i++){
+            const p=this.trail[i],a=(i/this.trail.length)*0.55,r=Math.max(this.r*(i/this.trail.length)*0.8,1);
+            c.save();c.globalAlpha=a;c.fillStyle=MB_GRN;c.shadowBlur=5;c.shadowColor=MB_GRN;
+            c.beginPath();c.arc(p.x,p.y,r,0,Math.PI*2);c.fill();c.restore();
+        }
+        c.save();c.shadowBlur=18;c.shadowColor=MB_GRN;c.fillStyle=MB_GRN;
+        c.beginPath();c.arc(this.pos.x,this.pos.y,this.r,0,Math.PI*2);c.fill();
+        c.fillStyle='rgba(255,255,255,0.5)';c.beginPath();c.arc(this.pos.x-2,this.pos.y-2,this.r*0.38,0,Math.PI*2);c.fill();
+        c.restore();
+    }
+}
+
+class MbObs{
+    constructor(cx,cy,half,cont,rotSpd,minY,maxY,oSpd=0.006){
+        this.cx=cx;this.half=half;this.cont=cont;this.rot=Math.PI/4;this.rotSpd=rotSpd;
+        this.yBase=(minY+maxY)/2;this.oscAmp=(maxY-minY)/2;this.cy=cy;
+        this.oscPh=Math.random()*Math.PI*2;this.oscSpd=oSpd+(Math.random()-0.5)*0.002;
+    }
+    update(){this.rot+=this.rotSpd;this.oscPh+=this.oscSpd;this.cy=this.yBase+Math.sin(this.oscPh)*this.oscAmp;}
+    draw(c){
+        c.save();c.translate(this.cx,this.cy);c.rotate(this.rot);
+        const s=this.half*Math.SQRT2;
+        c.fillStyle='#1e1e1e';c.strokeStyle=MB_GD;c.lineWidth=1.5;c.shadowBlur=7;c.shadowColor=MB_GD;
+        c.beginPath();c.rect(-s/2,-s/2,s,s);c.fill();c.stroke();c.restore();
+    }
+}
+
+class MbSwp{
+    constructor(cont,yPos){this.cont=cont;this.yPos=yPos;this.offset=0;this.speed=1.4;this.ch=10;this.gap=38;
+        this.count=Math.ceil(MB_W/38)+3;this.rot=0;this.rotSpd=0.18;this.cells=[];this.active=true;}
+    update(){
+        if(!this.active)return;
+        this.offset=(this.offset+this.speed)%this.gap;this.rot+=this.rotSpd;this.cells=[];
+        for(let i=0;i<this.count;i++)this.cells.push({x:i*this.gap+this.offset-this.gap,y:this.yPos});
+    }
+    draw(c){
+        if(!this.active)return;
+        c.save();c.strokeStyle='rgba(0,200,60,0.22)';c.lineWidth=1;
+        c.beginPath();c.moveTo(0,this.yPos);c.lineTo(MB_W,this.yPos);c.stroke();c.restore();
+        for(const cl of this.cells){
+            if(cl.x<-this.ch*2||cl.x>MB_W+this.ch*2)continue;
+            c.save();c.translate(cl.x,cl.y);c.rotate(this.rot);
+            const s=this.ch*Math.SQRT2;
+            c.fillStyle='#232323';c.strokeStyle='#00cc44';c.lineWidth=1.5;c.shadowBlur=8;c.shadowColor='#00cc44';
+            c.beginPath();c.rect(-s/2,-s/2,s,s);c.fill();c.stroke();c.restore();
+        }
+    }
+}
+
+class MbPipe{
+    constructor(p0,cp1,cp2,p3Fn){this.p0=p0;this.cp1=cp1;this.cp2=cp2;this.p3Fn=p3Fn;this.flowing=[];this.speed=0.007;this.visible=false;}
+    addMarble(){this.flowing.push({t:0});}
+    update(){for(const m of this.flowing)m.t+=this.speed;const done=this.flowing.filter(m=>m.t>=1).length;this.flowing=this.flowing.filter(m=>m.t<1);return done;}
+    bezierPos(t){
+        const p3=this.p3Fn(),it=1-t,cp2=this.cp2Fn?this.cp2Fn():this.cp2;
+        return{x:it*it*it*this.p0.x+3*it*it*t*this.cp1.x+3*it*t*t*cp2.x+t*t*t*p3.x,
+               y:it*it*it*this.p0.y+3*it*it*t*this.cp1.y+3*it*t*t*cp2.y+t*t*t*p3.y};
+    }
+    draw(c){
+        if(!this.visible&&this.flowing.length===0)return;
+        const p3=this.p3Fn(),cp2=this.cp2Fn?this.cp2Fn():this.cp2;
+        c.save();c.beginPath();c.moveTo(this.p0.x,this.p0.y);c.bezierCurveTo(this.cp1.x,this.cp1.y,cp2.x,cp2.y,p3.x,p3.y);
+        c.strokeStyle='rgba(0,60,20,0.7)';c.lineWidth=16;c.lineCap='round';c.stroke();
+        c.strokeStyle='rgba(0,180,70,0.25)';c.lineWidth=10;c.stroke();
+        c.shadowBlur=8;c.shadowColor=MB_GRN;c.strokeStyle='rgba(0,255,102,0.55)';c.lineWidth=2.5;c.stroke();c.shadowBlur=0;
+        for(const m of this.flowing){
+            const pos=this.bezierPos(m.t);
+            c.shadowBlur=14;c.shadowColor=MB_GRN;c.fillStyle=MB_GRN;
+            c.beginPath();c.arc(pos.x,pos.y,7,0,Math.PI*2);c.fill();
+        }
+        c.restore();
+    }
+}
+
+class MbZone{
+    constructor(idx,count,label,type,cont,tgtY){
+        this.idx=idx;this.count=count;this.label=label;this.type=type;this.cont=cont;
+        const sw=MB_W/count;this.x=idx*sw;this.w=sw;this.y=tgtY;this.h=MB_TGH;
+        this.cx=this.x+sw/2;this.cy=tgtY+MB_TGH/2;this.pulse=0;this.hitFlash=0;
+    }
+    update(){this.pulse+=0.06;if(this.hitFlash>0)this.hitFlash--;}
+    checkHit(m){
+        if(m.state!=='active'||m.hitCD>0)return false;
+        return m.pos.x+m.r>this.x&&m.pos.x-m.r<this.x+this.w&&m.pos.y+m.r>this.y&&m.pos.y-m.r<this.y+this.h;
+    }
+    triggerFlash(){this.hitFlash=20;}
+    draw(c){
+        const fl=this.hitFlash>0,al=fl?0.9:(0.35+0.15*Math.sin(this.pulse));
+        c.save();
+        const gr=c.createLinearGradient(this.x,this.y,this.x,this.y+this.h);
+        gr.addColorStop(0,`rgba(0,255,102,${al*0.6})`);gr.addColorStop(1,`rgba(0,255,102,${al*0.15})`);
+        c.fillStyle=gr;c.fillRect(this.x+1,this.y,this.w-2,this.h);
+        c.strokeStyle=fl?'#ffffff':MB_GRN;c.lineWidth=fl?2.5:1.5;c.shadowBlur=fl?20:10;c.shadowColor=MB_GRN;
+        c.strokeRect(this.x+1,this.y,this.w-2,this.h);
+        c.fillStyle=fl?'#ffffff':MB_GRN;c.font='bold 13px monospace';c.textAlign='center';c.textBaseline='middle';
+        c.shadowBlur=fl?16:8;c.shadowColor=MB_GRN;c.fillText(this.label,this.cx,this.cy);c.restore();
+    }
+}
+
+class MbLaunch{
+    constructor(x,y,cont,fireInt){
+        this.x=x;this.y=y;this.cont=cont;this.fireInt=fireInt;
+        this.angMin=-Math.PI*85/180;this.angMax=-Math.PI*15/180;this.ang=this.angMin;this.angDir=1;this.angSpd=0.013;
+        this.fireT=fireInt*0.35;this.barLen=26;this.active=true;
+    }
+    update(){
+        if(!this.active)return;
+        this.ang+=this.angDir*this.angSpd;
+        if(this.ang>=this.angMax){this.ang=this.angMax;this.angDir=-1;}
+        if(this.ang<=this.angMin){this.ang=this.angMin;this.angDir=1;}
+        if(this.fireT>0)this.fireT--;
+    }
+    shouldFire(){return this.active&&this.fireT<=0;}
+    resetTimer(){this.fireT=this.fireInt;}
+    createMarble(aOff=0){
+        const a=this.ang+aOff;
+        return new MbBall(this.x+Math.cos(a)*(this.barLen+2),this.y+Math.sin(a)*(this.barLen+2),
+            Math.cos(a)*MB_FSP,Math.sin(a)*MB_FSP,this.cont);
+    }
+    draw(c){
+        const tx=this.x+Math.cos(this.ang)*this.barLen,ty=this.y+Math.sin(this.ang)*this.barLen;
+        c.save();c.shadowBlur=14;c.shadowColor=MB_GRN;c.strokeStyle=MB_GRN;c.lineWidth=6;c.lineCap='round';
+        c.beginPath();c.moveTo(this.x,this.y);c.lineTo(tx,ty);c.stroke();
+        c.fillStyle='#102010';c.strokeStyle=MB_GRN;c.lineWidth=2.5;c.shadowBlur=16;
+        c.beginPath();c.arc(this.x,this.y,14,0,Math.PI*2);c.fill();c.stroke();
+        c.fillStyle=MB_GRN;c.shadowBlur=4;c.beginPath();c.arc(this.x,this.y,5,0,Math.PI*2);c.fill();c.restore();
+    }
+}
+
+// 弹珠区 → 敌机类型映射
+const MB_ZONE_TYPES=[
+    ()=>'scout',
+    ()=>Math.random()<0.5?'fighter':'interceptor',
+    ()=>Math.random()<0.5?'elite':'cruiser',
+    ()=>Math.random()<0.5?'bomber':'carrier',
+];
+// 每种敌机生成一架所需积分（按类型独立累计）
+const MB_TYPE_COSTS={scout:2,fighter:3,interceptor:3,elite:5,cruiser:6,bomber:12,carrier:16};
+
+class MarbleEnemyPanel{
+    constructor(){
+        this.oc=Object.assign(document.createElement('canvas'),{width:MB_W,height:MB_H});
+        this.octx=this.oc.getContext('2d');
+        // 外部独立 canvas（网页左上角）
+        const extEl=document.getElementById('marbleCanvas');
+        this.extCtx=extEl?extEl.getContext('2d'):null;
+        this.enemyQueue=[];
+        this.typePoints={scout:0,fighter:0,interceptor:0,elite:0,cruiser:0,bomber:0,carrier:0};
+        this.frame=0; // 用于 FIRE_INT 渐进
+        this.FIRE_INT=60; // 容器1初始发射间隔（每秒减0.5帧，最低15帧）
+        this.marbles=[];
+        this.bottomVisible=false;this.bottomSlideY=MB_BH;
+        this.weaponHit=false;this.deferredPipes=[];
+        this.topBounds={left:10,right:MB_W-10,top:10,bottom:MB_TH-2};
+        this.botBounds={left:10,right:MB_W-10,top:MB_TH+10,bottom:MB_H-2};
+        this._build();
+    }
+    _build(){
+        this.topLaunch=new MbLaunch(28,108,'top',this.FIRE_INT);
+        this.botLaunch=new MbLaunch(28,MB_TH+100,'bottom',this.FIRE_INT);
+        this.botLaunch.active=false;
+        const TM=20,TXM=MB_OMXT,BM=MB_TH+20,BXM=MB_OMXB;
+        this.obs=[
+            new MbObs(160, 90,14,'top',+0.035,TM,TXM,0.006),
+            new MbObs(320, 60,14,'top',-0.042,TM,TXM,0.008),
+            new MbObs(480,140,14,'top',+0.047,TM,TXM,0.007),
+            new MbObs(220,155,13,'top',-0.038,TM,TXM,0.005),
+            new MbObs(180,MB_TH+80, 13,'bottom',+0.043,BM,BXM,0.007),
+            new MbObs(380,MB_TH+130,13,'bottom',-0.038,BM,BXM,0.006),
+            new MbObs(560,MB_TH+70, 13,'bottom',+0.045,BM,BXM,0.008),
+        ];
+        this.swps=[new MbSwp('top',MB_STPY),new MbSwp('bottom',MB_SBTY)];
+        this.swps[1].active=false;
+        this.topZones=[
+            new MbZone(0,3,'WEAPON','weapon','top',MB_TTGY),
+            new MbZone(1,3,'SPLIT','split','top',MB_TTGY),
+            new MbZone(2,3,'GIANT','buff','top',MB_TTGY),
+        ];
+        this.botZones=[
+            new MbZone(0,4,'①','unit1','bottom',MB_BTGY),
+            new MbZone(1,4,'②','unit2','bottom',MB_BTGY),
+            new MbZone(2,4,'③','unit3','bottom',MB_BTGY),
+            new MbZone(3,4,'④','unit4','bottom',MB_BTGY),
+        ];
+        this.weaponPipe=new MbPipe(
+            {x:117,y:MB_TTGY},{x:80,y:MB_TH-4},null,
+            ()=>({x:28,y:MB_TH+100+this.bottomSlideY}));
+        this.weaponPipe.cp2Fn=()=>({x:20,y:MB_TH+20+this.bottomSlideY*0.5});
+        this.weaponPipe.visible=true;
+        this.splitPipe=new MbPipe(
+            {x:350,y:MB_TTGY},{x:200,y:MB_TH-4},{x:20,y:MB_TH-10},
+            ()=>({x:this.topLaunch.x,y:this.topLaunch.y}));
+        this.splitPipe.visible=true;
+    }
+    onWeapon(m){
+        m.state='dead';
+        if(!this.weaponHit){this.weaponHit=true;this.bottomVisible=true;this.bottomSlideY=MB_BH;}
+        this.weaponPipe.addMarble();
+    }
+    onSplit(m){
+        m.state='dead';this.splitPipe.addMarble();
+        this.deferredPipes.push({pipe:this.splitPipe,framesLeft:30});
+    }
+    onUnit(i){
+        if(i>=MB_ZONE_TYPES.length)return;
+        const type=MB_ZONE_TYPES[i]();          // 随机决定本次命中产生的敌机类型
+        this.typePoints[type]++;
+        if(this.typePoints[type]>=MB_TYPE_COSTS[type]){
+            this.typePoints[type]-=MB_TYPE_COSTS[type];
+            this.enemyQueue.push(type);
+        }
+    }
+    update(){
+        this.frame++;
+        // 每 300 帧（5s）发射间隔 +5，最多比初始值多 120 帧
+        if(this.frame%60===0)
+            this.topLaunch.fireInt=Math.max(this.topLaunch.fireInt-0.5, 15);
+        this.topLaunch.update();
+        if(this.topLaunch.shouldFire()){this.topLaunch.resetTimer();this.marbles.push(this.topLaunch.createMarble());}
+        this.botLaunch.update();
+        for(const o of this.obs)o.update();
+        for(const sw of this.swps)sw.update();
+        if(this.bottomVisible){
+            this.bottomSlideY+=(0-this.bottomSlideY)*0.11;
+            if(this.bottomSlideY<0.8)this.bottomSlideY=0;
+            if(this.bottomSlideY<8&&!this.botLaunch.active){this.botLaunch.active=true;this.swps[1].active=true;}
+        }
+        const wA=this.weaponPipe.update();
+        for(let i=0;i<wA;i++)this.marbles.push(this.botLaunch.createMarble());
+        const sA=this.splitPipe.update();
+        for(let i=0;i<sA;i++)this.marbles.push(this.topLaunch.createMarble());
+        for(const m of this.marbles)m.update(this.obs,this.swps,this.topBounds,this.botBounds);
+        // 目标区碰撞检测
+        for(const m of this.marbles){
+            if(m.state!=='active'||m.hitCD>0)continue;
+            if(m.cont==='top'){
+                for(const z of this.topZones){
+                    if(z.checkHit(m)){z.triggerFlash();
+                        if(z.type==='buff')m.state='dead';
+                        else if(z.type==='weapon')this.onWeapon(m);
+                        else if(z.type==='split')this.onSplit(m);
+                        break;}
+                }
+            }else{
+                for(let i=0;i<this.botZones.length;i++){
+                    const z=this.botZones[i];
+                    if(z.checkHit(m)){m.state='dead';z.triggerFlash();this.onUnit(i);break;}
+                }
+            }
+        }
+        for(const d of this.deferredPipes){d.framesLeft--;if(d.framesLeft<=0)d.pipe.addMarble();}
+        this.deferredPipes=this.deferredPipes.filter(d=>d.framesLeft>0);
+        this.marbles=this.marbles.filter(m=>m.state!=='dead');
+        for(const z of this.topZones)z.update();
+        for(const z of this.botZones)z.update();
+    }
+    _renderToOC(){
+        const c=this.octx;
+        c.clearRect(0,0,MB_W,MB_H);
+        // 上容器背景
+        c.fillStyle='#111111';c.fillRect(0,0,MB_W,MB_TH);
+        this.swps[0].draw(c);
+        for(const o of this.obs)if(o.cont==='top')o.draw(c);
+        for(const z of this.topZones)z.draw(c);
+        this.topLaunch.draw(c);
+        // 上下分隔线
+        c.save();c.strokeStyle=MB_GRN;c.lineWidth=2.5;c.shadowBlur=10;c.shadowColor=MB_GRN;
+        c.beginPath();c.moveTo(0,MB_TH-1);c.lineTo(MB_W,MB_TH-1);c.stroke();c.restore();
+        // 下容器（带滑入动画）
+        if(this.bottomVisible){
+            c.save();c.beginPath();c.rect(0,MB_TH,MB_W,MB_BH);c.clip();
+            c.translate(0,this.bottomSlideY);
+            c.fillStyle='#0f180f';c.fillRect(0,MB_TH,MB_W,MB_BH);
+            this.swps[1].draw(c);
+            for(const o of this.obs)if(o.cont==='bottom')o.draw(c);
+            // 底部目标区 + 各子类型积分进度
+            // 每区的敌机类型及对应积分键
+            const ZONE_INFO=[
+                [{t:'scout',    label:'侦察机'}],
+                [{t:'fighter',  label:'战斗机'},{t:'interceptor',label:'拦截机'}],
+                [{t:'elite',    label:'精英机'},{t:'cruiser',    label:'巡洋舰'}],
+                [{t:'bomber',   label:'轰炸机'},{t:'carrier',   label:'母舰'}],
+            ];
+            for(let i=0;i<this.botZones.length;i++){
+                this.botZones[i].draw(c);
+                const zx=this.botZones[i].x, zw=this.botZones[i].w, cx=this.botZones[i].cx;
+                const info=ZONE_INFO[i];
+                const rowH=Math.floor((MB_BH-MB_TGH-10)/info.length);
+                info.forEach((item,row)=>{
+                    const py=MB_TH+8+row*rowH;
+                    const pts=this.typePoints[item.t], cost=MB_TYPE_COSTS[item.t];
+                    // 标签
+                    c.save();c.fillStyle='rgba(0,255,102,0.7)';c.font='bold 18px monospace';
+                    c.textAlign='center';c.textBaseline='top';c.shadowBlur=6;c.shadowColor=MB_GRN;
+                    c.fillText(item.label,cx,py);c.restore();
+                    // 进度条
+                    const barW=zw-28,barH=7,bx=zx+14,by=py+24;
+                    const ratio=pts/cost;
+                    c.save();
+                    c.fillStyle='rgba(0,30,8,0.9)';c.fillRect(bx,by,barW,barH);
+                    c.fillStyle=ratio>=1?'#ffffff':ratio>0.5?MB_GRN:'#006622';
+                    c.shadowBlur=ratio>0?6:0;c.shadowColor=MB_GRN;
+                    c.fillRect(bx,by,barW*Math.min(ratio,1),barH);
+                    c.strokeStyle='rgba(0,255,102,0.25)';c.lineWidth=1;c.strokeRect(bx,by,barW,barH);
+                    // 数字
+                    c.fillStyle='rgba(0,255,102,0.6)';c.font='12px monospace';
+                    c.textAlign='center';c.textBaseline='top';c.shadowBlur=0;
+                    c.fillText(`${pts}/${cost}`,cx,by+10);
+                    c.restore();
+                });
+            }
+            this.botLaunch.draw(c);c.restore();
+        }
+        // 管道（全局层，跨两容器）
+        this.weaponPipe.draw(c);this.splitPipe.draw(c);
+        // 弹珠
+        for(const m of this.marbles)m.draw(c);
+    }
+    drawExternal(){
+        if(!this.extCtx)return;
+        this._renderToOC();
+        const c=this.extCtx;
+        const cw=c.canvas.width,ch=c.canvas.height;
+        c.clearRect(0,0,cw,ch);
+        // 背景
+        c.fillStyle='#080f08';c.fillRect(0,0,cw,ch);
+        // 弹珠模拟（铺满整个外部 canvas）
+        c.drawImage(this.oc,0,0,cw,ch);
+        // 外框
+        c.strokeStyle='rgba(0,255,102,0.5)';c.lineWidth=1.5;c.shadowBlur=12;c.shadowColor=MB_GRN;
+        c.strokeRect(1,1,cw-2,ch-2);
+    }
+    popEnemy(){return this.enemyQueue.shift()||null;}
+}
+
 // ─────────────────────────────────────────────────────────────
 //  AUDIO
 // ─────────────────────────────────────────────────────────────
@@ -1068,6 +1455,8 @@ class Game {
         // 屏幕特效
         this.screenShake=0;
         this.screenFlashAlpha=0; this.screenFlashColor='#ff0000';
+        // 弹珠敌机生成器
+        this.marblePanel=new MarbleEnemyPanel();
         this._ui(); this._input(); this._loop();
     }
 
@@ -1188,8 +1577,9 @@ class Game {
 
     _spawnEnemy(){
         if(this.enemies.length>=12)return;
+        const type=this.marblePanel.popEnemy();
+        if(!type)return; // 无弹珠队列则不生成
         const x=rand(20,canvas.width-100);
-        const type=this._getEnemyType();
         const e=new Enemy(x,-70,type);
         this.enemies.push(e);
         explode(x+e.w/2,-5,'spawn',this.particles);
@@ -1291,6 +1681,8 @@ class Game {
 
     // ── UPDATE ──
     _update(){
+        // 弹珠模拟每帧更新（游戏开始前也运行以预热队列）
+        this.marblePanel.update();
         if(this.state!=='playing')return;
         this.frame++; this.nebulaT+=0.003;
 
@@ -1311,11 +1703,9 @@ class Game {
         if(this.player._laserFireAudio){this.player._laserFireAudio=false;this.audio.laserFire();}
 
         this.gameTime++;
-        this.waveT++;
-        const tSec=this.gameTime/60;
-        const period=tSec<20?120:tSec<50?100:85;
-        const waveSize=tSec<10?1:tSec<30?2:3;
-        if(this.waveT>=period){ this.waveT=0; for(let _i=0;_i<waveSize;_i++)this._spawnEnemy(); }
+        // 敌机生成完全由弹珠系统驱动——队列有敌机就立即生成，无队列则不生成
+        while(this.marblePanel.enemyQueue.length>0 && this.enemies.length<12)
+            this._spawnEnemy();
 
         // 僚机更新
         this.allies=this.allies.filter(a=>{
@@ -1712,6 +2102,11 @@ class Game {
             ctx.globalAlpha=1; ctx.fillStyle=vg; ctx.fillRect(0,0,canvas.width,canvas.height);
             ctx.restore();
         }
+
+        // 弹珠敌机生成器面板（右上角，仅游戏中显示）
+        if(this.state==='playing')
+        // 弹珠敌机生成器（渲染到网页左上角独立 canvas）
+        this.marblePanel.drawExternal();
 
         // 扫描线（预渲染，1次drawImage代替267次fillRect）
         ctx.drawImage(this._scanline,0,0);
