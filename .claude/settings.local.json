@@ -13,7 +13,9 @@
       "Bash(node --check \"C:\\\\Users\\\\15716\\\\Desktop\\\\ccTest\\\\plane\\\\game.js\")",
       "Bash(node --check C:/Users/15716/Desktop/ccTest/plane/game.js)",
       "Read(//c/Users/15716/**)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(printf '</script>\\\\n</body>\\\\n</html>\\\\n')",
+      "Bash(cp /tmp/marble_tmp.html /c/Users/15716/Desktop/ccTest/marble/index.html)"
     ]
   }
 }
