@@ -15,7 +15,9 @@
       "Read(//c/Users/15716/**)",
       "Bash(node:*)",
       "Bash(printf '</script>\\\\n</body>\\\\n</html>\\\\n')",
-      "Bash(cp /tmp/marble_tmp.html /c/Users/15716/Desktop/ccTest/marble/index.html)"
+      "Bash(cp /tmp/marble_tmp.html /c/Users/15716/Desktop/ccTest/marble/index.html)",
+      "Read(//Users/svkzax/Desktop/**)",
+      "Read(//Users/**)"
     ]
   }
 }
