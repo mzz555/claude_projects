@@ -35,3 +35,18 @@ export class SeededRNG {
         return min + this.next() * (max - min);
     }
 }
+
+export interface AABB {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+}
+
+export function hits(a: AABB, b: AABB): boolean {
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+export function easeOutQuad(t: number): number {
+    return 1 - (1 - t) * (1 - t);
+}
