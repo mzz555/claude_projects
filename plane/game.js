@@ -465,6 +465,49 @@ const ENEMY_TIER={scout:1,fighter:2,interceptor:2,elite:3,cruiser:3,bomber:4,car
 const TIER_RATE={1:0.03,2:0.10,3:0.30,4:0.50};
 
 // ─────────────────────────────────────────────────────────────
+//  ASSET LOADER  —— 单位贴图（PNG）
+// ─────────────────────────────────────────────────────────────
+const ASSET_PATHS={
+    player:'static/飞机png/hero/plane_01_blue_striker_hires.png',
+    enemyScout:'static/飞机png/enemy/enemy-1.png',
+    enemyFighter:'static/飞机png/enemy/enemy-2.png',
+    enemyInterceptor:'static/飞机png/enemy/enemy-3.png',
+    enemyCruiser:'static/飞机png/enemy/enemy-4.png',
+    enemyBomber:'static/飞机png/enemy/enemy-5.png',
+    elites:[
+        'static/飞机png/bosses/elite-modern-1.png','static/飞机png/bosses/elite-modern-2.png',
+        'static/飞机png/bosses/elite-modern-3.png','static/飞机png/bosses/elite-modern-4.png',
+        'static/飞机png/bosses/elite-modern-5.png','static/飞机png/bosses/elite-modern-6.png',
+        'static/飞机png/bosses/elite-modern-7.png','static/飞机png/bosses/elite-modern-8.png'
+    ],
+    carriers:[
+        'static/飞机png/bosses/boss-wide-1.png','static/飞机png/bosses/boss-wide-2.png',
+        'static/飞机png/bosses/boss-wide-3.png','static/飞机png/bosses/boss-wide-4.png',
+        'static/飞机png/bosses/boss-extra-1.png','static/飞机png/bosses/boss-extra-2.png',
+        'static/飞机png/bosses/boss-extra-3.png','static/飞机png/bosses/boss-extra-4.png',
+        'static/飞机png/bosses/boss-extra-5.png'
+    ]
+};
+const AssetLoader={
+    images:{}, ready:false,
+    load(cb){
+        const all=[];
+        const reg=(k,p)=>{const img=new Image(); img.src=encodeURI(p); this.images[k]=img; all.push(img);};
+        for(const k in ASSET_PATHS){
+            const v=ASSET_PATHS[k];
+            if(Array.isArray(v)) v.forEach((p,i)=>reg(k+'_'+i,p));
+            else reg(k,v);
+        }
+        let n=0; const total=all.length;
+        const done=()=>{n++; if(n>=total){this.ready=true; cb&&cb();}};
+        all.forEach(img=>{ if(img.complete&&img.naturalWidth>0) done(); else {img.onload=done; img.onerror=done;} });
+    },
+    get(k){ return this.images[k]; },
+    eliteCount: 8,
+    carrierCount: 9
+};
+
+// ─────────────────────────────────────────────────────────────
 //  STARS
 // ─────────────────────────────────────────────────────────────
 class Star {
@@ -1033,34 +1076,36 @@ class Player {
             tg.addColorStop(0,`rgba(0,245,255,${0.85*eg})`); tg.addColorStop(1,'transparent');
             ctx.fillStyle=tg; ctx.beginPath(); ctx.ellipse(ex,this.h/2+eLen/2,eW/2,eLen/2,0,0,Math.PI*2); ctx.fill();
         });
-        // 翼尖
-        [[-1,-this.w/2],[1,this.w/2]].forEach(([s,wx])=>{
-            ctx.beginPath(); ctx.moveTo(wx,this.h/4); ctx.lineTo(wx+s*7,this.h/2); ctx.lineTo(wx-s*1,this.h/2); ctx.closePath();
-            ctx.fillStyle='#003355'; ctx.fill();
-        });
-        // 机身
-        ctx.beginPath();
-        ctx.moveTo(0,-this.h/2); ctx.lineTo(-this.w/2+3,this.h/4);
-        ctx.lineTo(-this.w/2,this.h/2); ctx.lineTo(-this.w/2+7,this.h/2-3);
-        ctx.lineTo(0,this.h/2-14); ctx.lineTo(this.w/2-7,this.h/2-3);
-        ctx.lineTo(this.w/2,this.h/2); ctx.lineTo(this.w/2-3,this.h/4); ctx.closePath();
-        const bg=ctx.createLinearGradient(0,-this.h/2,0,this.h/2);
-        bg.addColorStop(0,'#00e5ee'); bg.addColorStop(0.4,'#007799'); bg.addColorStop(1,'#003355');
-        ctx.fillStyle=bg; ctx.fill();
-        // 翼面纹
-        [[-1,-this.w/2+3],[1,this.w/2-3]].forEach(([s,wx])=>{
-            ctx.beginPath(); ctx.moveTo(wx,this.h/4); ctx.lineTo(s*6,0); ctx.lineTo(s*6,this.h/4); ctx.closePath();
-            ctx.fillStyle='rgba(0,245,255,0.18)'; ctx.fill();
-        });
-        // 座舱
-        const cg=ctx.createRadialGradient(-2,-this.h/4-1,0,0,-this.h/4,8);
-        cg.addColorStop(0,'#b0ffff'); cg.addColorStop(1,'#001e33');
-        ctx.fillStyle=cg; ctx.beginPath(); ctx.ellipse(0,-this.h/4,4.5,7.5,0,0,Math.PI*2); ctx.fill();
-        // 武器舱
-        ctx.fillStyle='#5522cc';
-        ctx.fillRect(-this.w/2+1,-3,6,10); ctx.fillRect(this.w/2-7,-3,6,10);
-        ctx.fillStyle='#00f5ff';
-        ctx.fillRect(-this.w/2+2,-4,3,3); ctx.fillRect(this.w/2-5,-4,3,3);
+        // 机身贴图（plane_01 蓝色 Striker），未就绪时回退多边形机身
+        const pImg=AssetLoader.get('player');
+        if(pImg&&pImg.complete&&pImg.naturalWidth>0){
+            const dw=this.w*1.55, dh=this.h*1.55;
+            ctx.drawImage(pImg,-dw/2,-dh/2,dw,dh);
+        } else {
+            [[-1,-this.w/2],[1,this.w/2]].forEach(([s,wx])=>{
+                ctx.beginPath(); ctx.moveTo(wx,this.h/4); ctx.lineTo(wx+s*7,this.h/2); ctx.lineTo(wx-s*1,this.h/2); ctx.closePath();
+                ctx.fillStyle='#003355'; ctx.fill();
+            });
+            ctx.beginPath();
+            ctx.moveTo(0,-this.h/2); ctx.lineTo(-this.w/2+3,this.h/4);
+            ctx.lineTo(-this.w/2,this.h/2); ctx.lineTo(-this.w/2+7,this.h/2-3);
+            ctx.lineTo(0,this.h/2-14); ctx.lineTo(this.w/2-7,this.h/2-3);
+            ctx.lineTo(this.w/2,this.h/2); ctx.lineTo(this.w/2-3,this.h/4); ctx.closePath();
+            const bg=ctx.createLinearGradient(0,-this.h/2,0,this.h/2);
+            bg.addColorStop(0,'#00e5ee'); bg.addColorStop(0.4,'#007799'); bg.addColorStop(1,'#003355');
+            ctx.fillStyle=bg; ctx.fill();
+            [[-1,-this.w/2+3],[1,this.w/2-3]].forEach(([s,wx])=>{
+                ctx.beginPath(); ctx.moveTo(wx,this.h/4); ctx.lineTo(s*6,0); ctx.lineTo(s*6,this.h/4); ctx.closePath();
+                ctx.fillStyle='rgba(0,245,255,0.18)'; ctx.fill();
+            });
+            const cg=ctx.createRadialGradient(-2,-this.h/4-1,0,0,-this.h/4,8);
+            cg.addColorStop(0,'#b0ffff'); cg.addColorStop(1,'#001e33');
+            ctx.fillStyle=cg; ctx.beginPath(); ctx.ellipse(0,-this.h/4,4.5,7.5,0,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle='#5522cc';
+            ctx.fillRect(-this.w/2+1,-3,6,10); ctx.fillRect(this.w/2-7,-3,6,10);
+            ctx.fillStyle='#00f5ff';
+            ctx.fillRect(-this.w/2+2,-4,3,3); ctx.fillRect(this.w/2-5,-4,3,3);
+        }
         // 道具形态叠加
         this._drawFormOverlay();
         // 护盾圈
@@ -1184,7 +1229,18 @@ class Enemy {
         this.eLaserCycleTimer=0; this.eLaserCycleInterval=400;
         // carrier weapon cycle (missile→split→laser→missile→...)
         this.weaponCycleIdx=0; this.weaponCycleShots=0;
+        // 贴图变体（elite/carrier 随机抽一张，本机生命周期内固定）
+        this.imgIndex=type==='elite'?randInt(0,AssetLoader.eliteCount-1)
+                     :type==='carrier'?randInt(0,AssetLoader.carrierCount-1):0;
         this._setup();
+    }
+    _getSpriteImage(){
+        const m={scout:'enemyScout',fighter:'enemyFighter',interceptor:'enemyInterceptor',
+                 cruiser:'enemyCruiser',bomber:'enemyBomber'};
+        if(m[this.type]) return AssetLoader.get(m[this.type]);
+        if(this.type==='elite') return AssetLoader.get('elites_'+this.imgIndex);
+        if(this.type==='carrier') return AssetLoader.get('carriers_'+this.imgIndex);
+        return null;
     }
     _setup(){
         switch(this.type){
@@ -1367,6 +1423,17 @@ class Enemy {
         ctx.save();
         ctx.scale(1,-1); // 机头朝下，面向玩家
         const W=this.w,H=this.h;
+        // 贴图优先：scout/fighter/interceptor/cruiser/bomber→enemy-1~5；elite→elite-modern；carrier→boss-wide/extra
+        const sImg=this._getSpriteImage();
+        if(sImg&&sImg.complete&&sImg.naturalWidth>0){
+            const scale=this.type==='elite'?1.55:this.type==='carrier'?1.4:1.6;
+            const dw=W*scale, dh=H*scale;
+            // 贴图本身已朝向玩家，撤销外层 scale(1,-1) 的垂直翻转
+            ctx.scale(1,-1);
+            ctx.drawImage(sImg,-dw/2,-dh/2,dw,dh);
+            ctx.restore();
+            return;
+        }
         switch(this.type){
             case 'scout':{
                 ctx.beginPath(); ctx.moveTo(0,-H/2); ctx.lineTo(-W/2,H/3); ctx.lineTo(-W/4,H/5); ctx.lineTo(0,H/2); ctx.lineTo(W/4,H/5); ctx.lineTo(W/2,H/3); ctx.closePath();
@@ -1457,6 +1524,8 @@ class Game {
         this.screenFlashAlpha=0; this.screenFlashColor='#ff0000';
         // 弹珠敌机生成器
         this.marblePanel=new MarbleEnemyPanel();
+        // 异步加载单位贴图（未就绪时回退到 Canvas 绘制）
+        AssetLoader.load();
         this._ui(); this._input(); this._loop();
     }
 
