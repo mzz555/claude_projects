@@ -1,7 +1,8 @@
 import { Ball, type BallInit } from './ball.js';
 import { Obstacle, type ObstacleInit } from './obstacle.js';
 import { Sweep, type SweepInit } from './sweep.js';
-import { resolveCircleVsCircle, resolveCircleVsSweep } from './collision.js';
+import { Pipe, type PipeInit } from './pipe.js';
+import { resolveCircleVsCircle, resolveCircleVsSweep, resolveCircleVsPipe } from './collision.js';
 import type { BallSnapshot, CollisionEvent, Vec2, WorldConfig } from './types.js';
 
 export interface WorldSnapshot {
@@ -12,9 +13,11 @@ export class World {
     private balls: Ball[] = [];
     private obstacles: Obstacle[] = [];
     private sweeps: Sweep[] = [];
+    private pipes: Pipe[] = [];
     private nextId = 1;
     private nextObsId = 1;
     private nextSweepId = 1;
+    private nextPipeId = 1;
     private cfg: Required<WorldConfig>;
 
     constructor(cfg: WorldConfig) {
@@ -41,6 +44,12 @@ export class World {
         const s = new Sweep(this.nextSweepId++, init);
         this.sweeps.push(s);
         return s.id;
+    }
+
+    addPipe(init: PipeInit): number {
+        const p = new Pipe(this.nextPipeId++, init);
+        this.pipes.push(p);
+        return p.id;
     }
 
     snapshotSweeps(): Array<{ id: number; pivot: Vec2; length: number; angle: number; thickness: number }> {
@@ -101,6 +110,12 @@ export class World {
             for (const s of this.sweeps) {
                 if (resolveCircleVsSweep(b, s, bounce)) {
                     events.push({ kind: 'sweep', ballId: b.id, sweepId: s.id });
+                }
+            }
+
+            for (const p of this.pipes) {
+                if (resolveCircleVsPipe(b, p, bounce)) {
+                    events.push({ kind: 'pipe', ballId: b.id, pipeId: p.id });
                 }
             }
         }

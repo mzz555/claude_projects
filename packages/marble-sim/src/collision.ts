@@ -1,6 +1,7 @@
 import type { Ball } from './ball.js';
 import type { Obstacle } from './obstacle.js';
 import type { Sweep } from './sweep.js';
+import type { Pipe } from './pipe.js';
 
 export function resolveCircleVsCircle(b: Ball, o: Obstacle, bounce: number): boolean {
     const dx = b.pos.x - o.pos.x;
@@ -53,6 +54,36 @@ export function resolveCircleVsSweep(b: Ball, s: Sweep, bounce: number): boolean
     if (vn < 0) {
         b.vel.x -= (1 + bounce) * vn * nx;
         b.vel.y -= (1 + bounce) * vn * ny;
+    }
+    return true;
+}
+
+export function resolveCircleVsPipe(ball: Ball, p: Pipe, bounce: number): boolean {
+    const dx = p.b.x - p.a.x;
+    const dy = p.b.y - p.a.y;
+    const lenSq = dx * dx + dy * dy || 1e-6;
+    const t = ((ball.pos.x - p.a.x) * dx + (ball.pos.y - p.a.y) * dy) / lenSq;
+    if (t < 0 || t > 1) return false;
+
+    const cx = p.a.x + dx * t;
+    const cy = p.a.y + dy * t;
+    const ox = ball.pos.x - cx;
+    const oy = ball.pos.y - cy;
+    const distSq = ox * ox + oy * oy;
+    const limit = p.halfWidth - ball.r;
+    if (limit <= 0 || distSq <= limit * limit) return false;
+
+    const dist = Math.sqrt(distSq) || 1e-6;
+    const nx = ox / dist;
+    const ny = oy / dist;
+    const overshoot = dist - limit;
+    ball.pos.x -= nx * overshoot;
+    ball.pos.y -= ny * overshoot;
+
+    const vn = ball.vel.x * nx + ball.vel.y * ny;
+    if (vn > 0) {
+        ball.vel.x -= (1 + bounce) * vn * nx;
+        ball.vel.y -= (1 + bounce) * vn * ny;
     }
     return true;
 }
