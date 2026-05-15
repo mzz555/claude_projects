@@ -29,6 +29,9 @@ importers:
 
   games/plane:
     dependencies:
+      '@cp/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       phaser:
         specifier: ^3.80
         version: 3.90.0
@@ -39,6 +42,15 @@ importers:
       vite:
         specifier: ^5
         version: 5.4.21
+
+  packages/core:
+    devDependencies:
+      phaser:
+        specifier: ^3.80
+        version: 3.90.0
+      typescript:
+        specifier: ^5.5
+        version: 5.9.3
 
 packages:
 
