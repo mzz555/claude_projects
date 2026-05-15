@@ -4,13 +4,25 @@ const tsParser = require('@typescript-eslint/parser');
 
 module.exports = [
     {
-        ignores: ['dist/**', 'node_modules/**', 'plane/**', 'marble/**', '**/*.cjs']
+        ignores: [
+            'dist/**',
+            'node_modules/**',
+            'plane/**',
+            'marble/**',
+            '**/*.cjs',
+            '**/*.config.ts'
+        ]
     },
     {
         files: ['**/*.ts'],
         languageOptions: {
             parser: tsParser,
-            parserOptions: { ecmaVersion: 2022, sourceType: 'module' }
+            parserOptions: {
+                ecmaVersion: 2022,
+                sourceType: 'module',
+                projectService: true,
+                tsconfigRootDir: __dirname
+            }
         },
         plugins: { '@typescript-eslint': tsPlugin },
         rules: {
