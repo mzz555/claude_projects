@@ -19,13 +19,24 @@ export class PlayScene extends Phaser.Scene {
         this.cameras.main.setBackgroundColor(PLANE_THEME.bg);
         this.physics.world.setBounds(PLAY_AREA.x, PLAY_AREA.y, PLAY_AREA.w, PLAY_AREA.h);
 
-        const kbSource = {
-            isKeyDown: (code: string): boolean => {
-                const k = this.input.keyboard;
-                if (!k) return false;
-                return k.checkDown(k.addKey(code));
-            }
+        // 直接监听 DOM keydown/keyup 维护按下集合
+        // 用 KeyboardEvent.code 字符串（'ArrowUp'/'KeyA'）与 InputMap 对齐
+        // 不走 Phaser 的 KeyCodes 体系（它用 'UP'/'A' 简写不兼容）
+        const downKeys = new Set<string>();
+        const onDown = (e: KeyboardEvent): void => {
+            downKeys.add(e.code);
         };
+        const onUp = (e: KeyboardEvent): void => {
+            downKeys.delete(e.code);
+        };
+        window.addEventListener('keydown', onDown);
+        window.addEventListener('keyup', onUp);
+        this.events.once('shutdown', () => {
+            window.removeEventListener('keydown', onDown);
+            window.removeEventListener('keyup', onUp);
+        });
+
+        const kbSource = { isKeyDown: (code: string): boolean => downKeys.has(code) };
 
         this.player = new Player(
             this,
