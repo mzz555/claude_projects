@@ -192,13 +192,25 @@ const tsPlugin = require('@typescript-eslint/eslint-plugin');
 
 module.exports = [
     {
-        ignores: ['dist/**', 'node_modules/**', 'plane/**', 'marble/**', '**/*.cjs']
+        ignores: [
+            'dist/**',
+            'node_modules/**',
+            'plane/**',
+            'marble/**',
+            '**/*.cjs',
+            '**/*.config.ts' // vite.config / vitest.config 不参与 typed lint
+        ]
     },
     {
         files: ['**/*.ts'],
         languageOptions: {
             parser: tsParser,
-            parserOptions: { ecmaVersion: 2022, sourceType: 'module' }
+            parserOptions: {
+                ecmaVersion: 2022,
+                sourceType: 'module',
+                projectService: true,    // no-floating-promises 等 typed 规则需要
+                tsconfigRootDir: __dirname
+            }
         },
         plugins: { '@typescript-eslint': tsPlugin },
         rules: {
