@@ -177,30 +177,40 @@ git commit -m "M1-2 添加 tsconfig 基础配置（strict 全开）"
 
 ## Task 3: ESLint + Prettier
 
-**Files:**
-- Create: `.eslintrc.cjs`
-- Create: `.prettierrc.cjs`
-- Create: `.eslintignore`
+> **注：** ESLint v9 已经弃用 `.eslintrc.*` 与 `.eslintignore`，使用 flat config（`eslint.config.cjs`），ignore 规则迁移到 `ignores` 字段。规则内容等价。
 
-- [ ] **Step 1: 写 `.eslintrc.cjs`**
+**Files:**
+- Create: `eslint.config.cjs`
+- Create: `.prettierrc.cjs`
+- Modify: `package.json`（lint 脚本改为 v9 API）
+
+- [ ] **Step 1: 写 `eslint.config.cjs`（flat config）**
 
 ```js
-module.exports = {
-    root: true,
-    parser: '@typescript-eslint/parser',
-    parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
-    plugins: ['@typescript-eslint'],
-    extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended'],
-    rules: {
-        '@typescript-eslint/no-explicit-any': 'error',
-        '@typescript-eslint/explicit-module-boundary-types': 'warn',
-        '@typescript-eslint/no-floating-promises': 'error',
-        'eqeqeq': 'error',
-        'no-console': ['warn', { allow: ['warn', 'error'] }],
-        'curly': ['error', 'multi-line']
+const tsParser = require('@typescript-eslint/parser');
+const tsPlugin = require('@typescript-eslint/eslint-plugin');
+
+module.exports = [
+    {
+        ignores: ['dist/**', 'node_modules/**', 'plane/**', 'marble/**', '**/*.cjs']
     },
-    ignorePatterns: ['dist', 'node_modules', 'plane', 'marble']
-};
+    {
+        files: ['**/*.ts'],
+        languageOptions: {
+            parser: tsParser,
+            parserOptions: { ecmaVersion: 2022, sourceType: 'module' }
+        },
+        plugins: { '@typescript-eslint': tsPlugin },
+        rules: {
+            '@typescript-eslint/no-explicit-any': 'error',
+            '@typescript-eslint/explicit-module-boundary-types': 'warn',
+            '@typescript-eslint/no-floating-promises': 'error',
+            eqeqeq: 'error',
+            'no-console': ['warn', { allow: ['warn', 'error'] }],
+            curly: ['error', 'multi-line']
+        }
+    }
+];
 ```
 
 - [ ] **Step 2: 写 `.prettierrc.cjs`**
@@ -217,27 +227,25 @@ module.exports = {
 };
 ```
 
-- [ ] **Step 3: 写 `.eslintignore`**
+- [ ] **Step 3: 更新 `package.json` 的 lint 脚本（ESLint v9 不再支持 `--ext`）**
 
-```
-dist
-node_modules
-plane
-marble
-*.cjs
+把 `"lint": "eslint . --ext .ts"` 改为：
+
+```jsonc
+"lint": "eslint \"**/*.ts\" --no-error-on-unmatched-pattern"
 ```
 
-- [ ] **Step 4: 验证 lint 在空工作区可跑（应当 0 errors）**
+- [ ] **Step 4: 验证 lint 在空工作区可跑**
 
 ```powershell
 pnpm lint
-# 期望：no files matched 或 clean
+# 期望：exit 0
 ```
 
 - [ ] **Step 5: Commit**
 
 ```powershell
-git add .eslintrc.cjs .prettierrc.cjs .eslintignore
+git add eslint.config.cjs .prettierrc.cjs package.json
 git commit -m "M1-3 配置 ESLint 与 Prettier"
 ```
 
