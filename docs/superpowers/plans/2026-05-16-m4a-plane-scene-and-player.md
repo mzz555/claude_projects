@@ -636,15 +636,15 @@ import { describe, it, expect } from 'vitest';
 import { WeaponSystem } from '../src/systems/WeaponSystem.js';
 
 describe('WeaponSystem Lv0', () => {
-    it('未到间隔不发射', () => {
+    it('首次 tick 立刻发射（旧版行为：按下开火立刻发）', () => {
         const w = new WeaponSystem();
-        // 间隔 133ms，dt=50ms 不该发
-        expect(w.tick(50)).toBe(0);
+        expect(w.tick(16)).toBe(1);
     });
 
-    it('恰好到间隔发射 1 次', () => {
+    it('冷却期内不重发', () => {
         const w = new WeaponSystem();
-        expect(w.tick(133)).toBe(1);
+        w.tick(16); // 首发进入冷却
+        expect(w.tick(50)).toBe(0);
     });
 
     it('累积 dt 超过间隔时只发 1 次（防尖峰一帧多发）', () => {
