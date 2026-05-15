@@ -109,9 +109,9 @@ export class World {
 
         for (const b of this.balls) {
             if (!b.alive) continue;
-            b.vel.y += gravity * dt;
             b.vel.x *= dragK;
             b.vel.y *= dragK;
+            b.vel.y += gravity * dt;
             b.pos.x += b.vel.x * dt;
             b.pos.y += b.vel.y * dt;
 
