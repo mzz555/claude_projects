@@ -23,7 +23,7 @@ export class HudPanel extends Phaser.GameObjects.Container {
 
     private relayout(): void {
         let cursor = 0;
-        for (const child of this.list as Phaser.GameObjects.Components.Transform[]) {
+        for (const child of this.list as unknown as Phaser.GameObjects.Components.Transform[]) {
             if (this.opts.direction === 'row') {
                 child.x = cursor;
                 cursor += this.opts.gap;

@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { clamp } from '@cp/core';
+void clamp; // 工作区依赖连通性烟雾测试
 
 class HelloScene extends Phaser.Scene {
     constructor() {
