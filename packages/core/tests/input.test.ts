@@ -55,3 +55,32 @@ describe('input/InputMap 键盘', () => {
         expect(map.justPressed('fire')).toBe(true);
     });
 });
+
+describe('input/InputMap 手柄', () => {
+    it('手柄按钮按下时 isDown 为 true', () => {
+        const map = new InputMap<'fire'>({ isKeyDown: () => false });
+        map.bindGamepad('fire', 0);
+        const buttons = new Set<number>();
+        map.setGamepadQuery((b) => buttons.has(b));
+
+        expect(map.isDown('fire')).toBe(false);
+        buttons.add(0);
+        expect(map.isDown('fire')).toBe(true);
+    });
+
+    it('键盘或手柄任一触发都算 down', () => {
+        const downKeys = new Set<string>();
+        const map = new InputMap<'jump'>({ isKeyDown: (c) => downKeys.has(c) });
+        map.bindKey('jump', 'Space');
+        map.bindGamepad('jump', 1);
+        const buttons = new Set<number>();
+        map.setGamepadQuery((b) => buttons.has(b));
+
+        expect(map.isDown('jump')).toBe(false);
+        downKeys.add('Space');
+        expect(map.isDown('jump')).toBe(true);
+        downKeys.delete('Space');
+        buttons.add(1);
+        expect(map.isDown('jump')).toBe(true);
+    });
+});
