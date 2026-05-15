@@ -1,0 +1,41 @@
+import Phaser from 'phaser';
+import { Bullet } from '../entities/Bullet.js';
+import { Enemy } from '../entities/Enemy.js';
+import { Player } from '../entities/Player.js';
+import { E } from '../events.js';
+
+export interface CollisionSystemOpts {
+    scene: Phaser.Scene;
+    player: Player;
+    enemies: Phaser.Physics.Arcade.Group;
+    bullets: Phaser.Physics.Arcade.Group;
+}
+
+export class CollisionSystem {
+    constructor(opts: CollisionSystemOpts) {
+        const { scene, player, enemies, bullets } = opts;
+
+        scene.physics.add.overlap(bullets, enemies, (a, b) => {
+            const bullet = a as Bullet;
+            const enemy = b as Enemy;
+            if (!bullet.active || !enemy.active) return;
+            const killed = enemy.takeDamage(bullet.damage);
+            bullet.deactivate();
+            if (killed) {
+                scene.events.emit(E.EnemyKilled, {
+                    enemyType: enemy.typeKey,
+                    score: enemy.score,
+                    x: enemy.x,
+                    y: enemy.y
+                });
+            }
+        });
+
+        scene.physics.add.overlap(player, enemies, (_p, b) => {
+            const enemy = b as Enemy;
+            if (!enemy.active) return;
+            scene.events.emit(E.PlayerHit, { damage: enemy.dmg });
+            enemy.deactivate();
+        });
+    }
+}
