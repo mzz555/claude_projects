@@ -1,7 +1,8 @@
 import { Ball, type BallInit } from './ball.js';
 import { Obstacle, type ObstacleInit } from './obstacle.js';
-import { resolveCircleVsCircle } from './collision.js';
-import type { BallSnapshot, CollisionEvent, WorldConfig } from './types.js';
+import { Sweep, type SweepInit } from './sweep.js';
+import { resolveCircleVsCircle, resolveCircleVsSweep } from './collision.js';
+import type { BallSnapshot, CollisionEvent, Vec2, WorldConfig } from './types.js';
 
 export interface WorldSnapshot {
     balls: BallSnapshot[];
@@ -10,8 +11,10 @@ export interface WorldSnapshot {
 export class World {
     private balls: Ball[] = [];
     private obstacles: Obstacle[] = [];
+    private sweeps: Sweep[] = [];
     private nextId = 1;
     private nextObsId = 1;
+    private nextSweepId = 1;
     private cfg: Required<WorldConfig>;
 
     constructor(cfg: WorldConfig) {
@@ -34,10 +37,28 @@ export class World {
         return o.id;
     }
 
+    addSweep(init: SweepInit): number {
+        const s = new Sweep(this.nextSweepId++, init);
+        this.sweeps.push(s);
+        return s.id;
+    }
+
+    snapshotSweeps(): Array<{ id: number; pivot: Vec2; length: number; angle: number; thickness: number }> {
+        return this.sweeps.map((s) => ({
+            id: s.id,
+            pivot: { x: s.pivot.x, y: s.pivot.y },
+            length: s.length,
+            angle: s.angle,
+            thickness: s.thickness
+        }));
+    }
+
     step(dt: number): CollisionEvent[] {
         const events: CollisionEvent[] = [];
         const { gravity, bounce, drag, bounds } = this.cfg;
         const dragK = Math.exp(-drag * dt);
+
+        for (const s of this.sweeps) s.advance(dt);
 
         for (const b of this.balls) {
             if (!b.alive) continue;
@@ -74,6 +95,12 @@ export class World {
             for (const o of this.obstacles) {
                 if (resolveCircleVsCircle(b, o, bounce)) {
                     events.push({ kind: 'obstacle', ballId: b.id, obstacleId: o.id });
+                }
+            }
+
+            for (const s of this.sweeps) {
+                if (resolveCircleVsSweep(b, s, bounce)) {
+                    events.push({ kind: 'sweep', ballId: b.id, sweepId: s.id });
                 }
             }
         }
