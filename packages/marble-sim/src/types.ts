@@ -8,7 +8,6 @@ export interface WorldConfig {
     gravity: number;       // px/s^2
     bounce: number;        // 0..1 反弹系数
     drag?: number;         // 每秒线性阻尼，默认 0
-    maxSteps?: number;     // 单帧最大子步，默认 4
 }
 
 export type CollisionEvent =

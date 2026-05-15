@@ -29,7 +29,6 @@ export class World {
     constructor(cfg: WorldConfig) {
         this.cfg = {
             drag: 0,
-            maxSteps: 4,
             ...cfg
         };
     }
