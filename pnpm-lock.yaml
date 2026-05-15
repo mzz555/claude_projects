@@ -35,6 +35,9 @@ importers:
       '@cp/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@cp/marble-sim':
+        specifier: workspace:*
+        version: link:../../packages/marble-sim
       phaser:
         specifier: ^3.80
         version: 3.90.0
@@ -51,6 +54,12 @@ importers:
       phaser:
         specifier: ^3.80
         version: 3.90.0
+      typescript:
+        specifier: ^5.5
+        version: 5.9.3
+
+  packages/marble-sim:
+    devDependencies:
       typescript:
         specifier: ^5.5
         version: 5.9.3

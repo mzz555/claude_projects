@@ -10,7 +10,8 @@
     },
     "dependencies": {
         "phaser": "^3.80",
-        "@cp/core": "workspace:*"
+        "@cp/core": "workspace:*",
+        "@cp/marble-sim": "workspace:*"
     },
     "devDependencies": {
         "vite": "^5",
