@@ -13,8 +13,8 @@ describe('World/addBall + snapshot', () => {
         const id = w.addBall({ pos: { x: 50, y: 10 }, vel: { x: 0, y: 0 }, r: 5 });
         const snap = w.snapshot();
         expect(snap.balls.length).toBe(1);
-        expect(snap.balls[0].id).toBe(id);
-        expect(snap.balls[0].pos.y).toBe(10);
+        expect(snap.balls[0]!.id).toBe(id);
+        expect(snap.balls[0]!.pos.y).toBe(10);
     });
 });
 
@@ -25,7 +25,7 @@ describe('World/step 重力作用', () => {
         const w = new World({ ...cfg, bounds: { x: 0, y: 0, w: 100, h: 1000 } });
         w.addBall({ pos: { x: 50, y: 0 }, vel: { x: 0, y: 0 }, r: 1 });
         for (let i = 0; i < 60; i++) w.step(1 / 60);
-        const ball = w.snapshot().balls[0];
+        const ball = w.snapshot().balls[0]!;
         expect(ball.pos.y).toBeGreaterThan(460);
         expect(ball.pos.y).toBeLessThan(540);
     });
@@ -34,7 +34,7 @@ describe('World/step 重力作用', () => {
         const w = new World({ ...cfg, gravity: 0, bounce: 0.5 });
         w.addBall({ pos: { x: 50, y: 190 }, vel: { x: 0, y: 100 }, r: 5 });
         w.step(1);
-        const b = w.snapshot().balls[0];
+        const b = w.snapshot().balls[0]!;
         expect(b.vel.y).toBeCloseTo(-50, 1);
     });
 
@@ -42,7 +42,7 @@ describe('World/step 重力作用', () => {
         const w = new World({ ...cfg, gravity: 0, bounce: 1 });
         w.addBall({ pos: { x: 10, y: 100 }, vel: { x: -100, y: 0 }, r: 5 });
         w.step(0.2);
-        const b = w.snapshot().balls[0];
+        const b = w.snapshot().balls[0]!;
         expect(b.vel.x).toBeGreaterThan(0);
     });
 });

@@ -27,6 +27,10 @@ module.exports = [
         plugins: { '@typescript-eslint': tsPlugin },
         rules: {
             ...tsPlugin.configs.recommended.rules,
+            '@typescript-eslint/no-unused-vars': [
+                'error',
+                { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }
+            ],
             '@typescript-eslint/no-explicit-any': 'error',
             '@typescript-eslint/explicit-module-boundary-types': 'warn',
             '@typescript-eslint/no-floating-promises': 'error',
