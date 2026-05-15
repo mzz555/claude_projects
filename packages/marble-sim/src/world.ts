@@ -2,6 +2,8 @@ import { Ball, type BallInit } from './ball.js';
 import { Obstacle, type ObstacleInit } from './obstacle.js';
 import { Sweep, type SweepInit } from './sweep.js';
 import { Pipe, type PipeInit } from './pipe.js';
+import { Zone, type ZoneInit } from './zone.js';
+import { Launcher, type LauncherInit } from './launcher.js';
 import { resolveCircleVsCircle, resolveCircleVsSweep, resolveCircleVsPipe } from './collision.js';
 import type { BallSnapshot, CollisionEvent, Vec2, WorldConfig } from './types.js';
 
@@ -14,10 +16,14 @@ export class World {
     private obstacles: Obstacle[] = [];
     private sweeps: Sweep[] = [];
     private pipes: Pipe[] = [];
+    private zones: Zone[] = [];
+    private launchers: Launcher[] = [];
     private nextId = 1;
     private nextObsId = 1;
     private nextSweepId = 1;
     private nextPipeId = 1;
+    private nextZoneId = 1;
+    private nextLauncherId = 1;
     private cfg: Required<WorldConfig>;
 
     constructor(cfg: WorldConfig) {
@@ -52,6 +58,30 @@ export class World {
         return p.id;
     }
 
+    addZone(init: ZoneInit): number {
+        const z = new Zone(this.nextZoneId++, init);
+        this.zones.push(z);
+        return z.id;
+    }
+
+    addLauncher(init: LauncherInit): number {
+        const l = new Launcher(this.nextLauncherId++, init);
+        this.launchers.push(l);
+        return l.id;
+    }
+
+    launchBall(init: BallInit): number {
+        return this.addBall(init);
+    }
+
+    teleportBall(id: number, pos: Vec2): void {
+        const b = this.balls.find((x) => x.id === id);
+        if (b) {
+            b.pos.x = pos.x;
+            b.pos.y = pos.y;
+        }
+    }
+
     snapshotSweeps(): Array<{ id: number; pivot: Vec2; length: number; angle: number; thickness: number }> {
         return this.sweeps.map((s) => ({
             id: s.id,
@@ -68,6 +98,14 @@ export class World {
         const dragK = Math.exp(-drag * dt);
 
         for (const s of this.sweeps) s.advance(dt);
+
+        for (const l of this.launchers) {
+            l.sinceLast += dt;
+            while (l.sinceLast >= l.interval) {
+                l.sinceLast -= l.interval;
+                this.addBall({ pos: { ...l.pos }, vel: { ...l.vel }, r: l.r });
+            }
+        }
 
         for (const b of this.balls) {
             if (!b.alive) continue;
@@ -116,6 +154,18 @@ export class World {
             for (const p of this.pipes) {
                 if (resolveCircleVsPipe(b, p, bounce)) {
                     events.push({ kind: 'pipe', ballId: b.id, pipeId: p.id });
+                }
+            }
+
+            for (const z of this.zones) {
+                const inside = z.contains(b);
+                const was = z.contained.has(b.id);
+                if (inside && !was) {
+                    z.contained.add(b.id);
+                    z.onEnter(b);
+                    events.push({ kind: 'zone', ballId: b.id, zoneId: z.id });
+                } else if (!inside && was) {
+                    z.contained.delete(b.id);
                 }
             }
         }
