@@ -1,4 +1,6 @@
 import { Ball, type BallInit } from './ball.js';
+import { Obstacle, type ObstacleInit } from './obstacle.js';
+import { resolveCircleVsCircle } from './collision.js';
 import type { BallSnapshot, CollisionEvent, WorldConfig } from './types.js';
 
 export interface WorldSnapshot {
@@ -7,7 +9,9 @@ export interface WorldSnapshot {
 
 export class World {
     private balls: Ball[] = [];
+    private obstacles: Obstacle[] = [];
     private nextId = 1;
+    private nextObsId = 1;
     private cfg: Required<WorldConfig>;
 
     constructor(cfg: WorldConfig) {
@@ -22,6 +26,12 @@ export class World {
         const b = new Ball(this.nextId++, init);
         this.balls.push(b);
         return b.id;
+    }
+
+    addObstacle(init: ObstacleInit): number {
+        const o = new Obstacle(this.nextObsId++, init);
+        this.obstacles.push(o);
+        return o.id;
     }
 
     step(dt: number): CollisionEvent[] {
@@ -59,6 +69,12 @@ export class World {
                 b.pos.y = maxY;
                 b.vel.y = -b.vel.y * bounce;
                 events.push({ kind: 'wall', ballId: b.id });
+            }
+
+            for (const o of this.obstacles) {
+                if (resolveCircleVsCircle(b, o, bounce)) {
+                    events.push({ kind: 'obstacle', ballId: b.id, obstacleId: o.id });
+                }
             }
         }
         return events;
