@@ -17,7 +17,21 @@
       "Bash(printf '</script>\\\\n</body>\\\\n</html>\\\\n')",
       "Bash(cp /tmp/marble_tmp.html /c/Users/15716/Desktop/ccTest/marble/index.html)",
       "Read(//Users/svkzax/Desktop/**)",
-      "Read(//Users/**)"
+      "Read(//Users/**)",
+      "Skill(superpowers:brainstorming)",
+      "Bash(git config *)",
+      "PowerShell(Move-Item *)",
+      "Read(//c/Users/Administrator/**)",
+      "Bash(mv /c/Users/Administrator/.claude/learn-notes /c/Users/Administrator/.claude/blog)",
+      "PowerShell(cmd /c \"move C:\\\\Users\\\\Administrator\\\\.claude\\\\learn-notes C:\\\\Users\\\\Administrator\\\\.claude\\\\blog 2>&1\"; Write-Output \"---exit=$LASTEXITCODE---\"; Get-ChildItem \"C:\\\\Users\\\\Administrator\\\\.claude\\\\\" -Directory | Where-Object Name -match \"blog|learn\" | Select-Object Name)",
+      "Bash(mv /c/Users/Administrator/Desktop/cc-project/learn-notes /c/Users/Administrator/.claude/blog)",
+      "Bash(echo \"---exit=$?---\")",
+      "PowerShell(Get-Command *)",
+      "Bash(python -m http.server 8765)",
+      "PowerShell(Start-Sleep -Milliseconds 800; try { $r = Invoke-WebRequest -Uri \"http://127.0.0.1:8765/index.html\" -UseBasicParsing -TimeoutSec 3; \"HTTP $\\($r.StatusCode\\), bytes=$\\($r.RawContentLength\\)\" } catch { \"请求失败: $_\" }; try { $j = Invoke-WebRequest -Uri \"http://127.0.0.1:8765/game.js\" -UseBasicParsing -TimeoutSec 3; \"game.js HTTP $\\($j.StatusCode\\), bytes=$\\($j.RawContentLength\\)\" } catch { \"game.js 请求失败: $_\" }; try { $img = Invoke-WebRequest -Uri \\(\"http://127.0.0.1:8765/\" + [uri]::EscapeUriString\\(\"static/飞机png/hero/plane_01_blue_striker_hires.png\"\\)\\) -UseBasicParsing -TimeoutSec 5; \"hero HTTP $\\($img.StatusCode\\), bytes=$\\($img.RawContentLength\\)\" } catch { \"hero 请求失败: $_\" })",
+      "PowerShell($base=\"http://127.0.0.1:8765/\"; $paths=@\\(\"static/飞机png/enemy/enemy-1.png\",\"static/飞机png/enemy/enemy-5.png\",\"static/飞机png/bosses/elite-modern-1.png\",\"static/飞机png/bosses/boss-wide-1.png\",\"static/飞机png/bosses/boss-extra-3.png\"\\); foreach\\($p in $paths\\){ try { $r=Invoke-WebRequest -Uri \\($base+[uri]::EscapeUriString\\($p\\)\\) -UseBasicParsing -TimeoutSec 5; \"OK $\\($r.StatusCode\\) $\\($r.RawContentLength\\)B  $p\" } catch { \"FAIL $p : $_\" } })",
+      "Skill(superpowers:writing-plans)",
+      "Skill(superpowers:subagent-driven-development)"
     ]
   }
 }
