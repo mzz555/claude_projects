@@ -5,7 +5,11 @@ vi.mock('phaser', () => {
     class Container {
         list: unknown[] = [];
         constructor(_scene: unknown, _x: number, _y: number) {}
-        add(_children: unknown) { return this; }
+        add(children: unknown) {
+            const arr = Array.isArray(children) ? children : [children];
+            this.list.push(...arr);
+            return this;
+        }
         setSize(_w: number, _h: number) { return this; }
         setInteractive(_opts?: unknown) { return this; }
         setDepth(_d: number) { return this; }
@@ -50,5 +54,43 @@ describe('ui/导出', () => {
         expect(typeof Bar).toBe('function');
         expect(typeof Dialog).toBe('function');
         expect(typeof HudPanel).toBe('function');
+    });
+});
+
+describe('ui/HudPanel relayout', () => {
+    type Child = { x: number; y: number; width: number; height: number };
+    const fakeScene = { add: { existing: () => undefined } } as never;
+    const makeChild = (w: number, h: number): Child => ({ x: 0, y: 0, width: w, height: h });
+
+    it('行布局：cursor 按 child.width + gap 累加', () => {
+        const p = new HudPanel(fakeScene, { x: 0, y: 0, direction: 'row', gap: 10 });
+        const a = makeChild(80, 20);
+        const b = makeChild(40, 20);
+        const c = makeChild(60, 20);
+        p.addChild(a as never);
+        p.addChild(b as never);
+        p.addChild(c as never);
+        expect(a.x).toBe(0);
+        expect(b.x).toBe(80 + 10);
+        expect(c.x).toBe(80 + 10 + 40 + 10);
+    });
+
+    it('列布局：cursor 按 child.height + gap 累加', () => {
+        const p = new HudPanel(fakeScene, { x: 0, y: 0, direction: 'column', gap: 8 });
+        const a = makeChild(20, 30);
+        const b = makeChild(20, 50);
+        p.addChild(a as never);
+        p.addChild(b as never);
+        expect(a.y).toBe(0);
+        expect(b.y).toBe(30 + 8);
+    });
+
+    it('child 缺 width/height 时按 0 计入', () => {
+        const p = new HudPanel(fakeScene, { x: 0, y: 0, gap: 12 });
+        const a = { x: 0, y: 0 };
+        const b = { x: 0, y: 0 };
+        p.addChild(a as never);
+        p.addChild(b as never);
+        expect(b.x).toBe(0 + 12);
     });
 });
