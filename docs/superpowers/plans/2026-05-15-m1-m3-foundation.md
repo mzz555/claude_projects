@@ -202,6 +202,7 @@ module.exports = [
         },
         plugins: { '@typescript-eslint': tsPlugin },
         rules: {
+            ...tsPlugin.configs.recommended.rules, // 等价原 v8 extends: ['plugin:@typescript-eslint/recommended']
             '@typescript-eslint/no-explicit-any': 'error',
             '@typescript-eslint/explicit-module-boundary-types': 'warn',
             '@typescript-eslint/no-floating-promises': 'error',
