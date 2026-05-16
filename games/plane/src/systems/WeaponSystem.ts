@@ -1,4 +1,4 @@
-import { WEAPONS, PRIMARY, SPREAD, SWARM, OVERDRIVE, type WeaponLevelSpec } from '../data/weapons.js';
+import { WEAPONS, PRIMARY, SPREAD, SWARM, TRACKER, OVERDRIVE, type WeaponLevelSpec } from '../data/weapons.js';
 
 export type ShotLayer = 'primary' | 'spread' | 'swarm' | 'tracker';
 
@@ -26,6 +26,7 @@ export class WeaponSystem {
     private primaryCooldown = 0;
     private swarmCycleElapsed = 0;
     private swarmCooldown = 0;
+    private trackerCooldown = 0;
     private overdriveRemainingMs = 0;
 
     /**
@@ -39,6 +40,7 @@ export class WeaponSystem {
         this.primaryCooldown = 0;
         this.swarmCycleElapsed = 0;
         this.swarmCooldown = 0;
+        this.trackerCooldown = 0;
     }
 
     getLevel(): number {
@@ -80,6 +82,7 @@ export class WeaponSystem {
         const shots: ShotSpec[] = [];
         this.tickPrimary(spec, dtMs, shots);
         this.tickSwarm(spec, overdrivePortion, normalPortion, shots);
+        this.tickTracker(spec, dtMs, shots);
         return shots;
     }
 
@@ -168,6 +171,41 @@ export class WeaponSystem {
                 vy: p.vyFactor * SWARM.bulletSpeed,
                 damage: SWARM.damage,
                 color: SWARM.color
+            });
+        }
+    }
+
+    /**
+     * 追踪导弹层：Lv3 起启用，独立 cooldown（不与 primary/swarm 共享）。
+     *
+     * 参数三段调制：
+     * - Lv3 单发：interval = TRACKER.intervalMs（2000ms）
+     * - Lv4 双发：interval = TRACKER.intervalMs × dualIntervalFactor（0.65 倍 = 1300ms）
+     * - 超频：上式再 × TRACKER.overdriveFactor（0.5 倍）
+     *
+     * 不需要像 swarm 那样拆 dtMs：tracker 用独立 cooldown 而非 cycle 相位，
+     * interval 在 cooldown reset 那一刻一次性决定，不存在跨超频边界的相位漂移问题。
+     */
+    private tickTracker(spec: WeaponLevelSpec, dtMs: number, out: ShotSpec[]): void {
+        if (spec.layers.tracker === 0) return;
+        this.trackerCooldown -= dtMs;
+        if (this.trackerCooldown > 0) return;
+        let interval = TRACKER.intervalMs;
+        if (spec.layers.tracker === 2) interval *= TRACKER.dualIntervalFactor;
+        if (this.isOverdrive()) interval *= TRACKER.overdriveFactor;
+        this.trackerCooldown = interval;
+        const count = spec.layers.tracker;
+        for (let i = 0; i < count; i++) {
+            const offsetX = count === 1 ? 0 : i === 0 ? -16 : 16;
+            out.push({
+                layer: 'tracker',
+                kind: 'tracker',
+                ox: offsetX,
+                oy: -30,
+                vx: 0,
+                vy: -TRACKER.bulletSpeed,
+                damage: TRACKER.damage,
+                lifetimeMs: TRACKER.lifetimeMs
             });
         }
     }

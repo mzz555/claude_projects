@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { WeaponSystem } from '../src/systems/WeaponSystem.js';
-import { PRIMARY, SPREAD, SWARM } from '../src/data/weapons.js';
+import { PRIMARY, SPREAD, SWARM, TRACKER } from '../src/data/weapons.js';
 
 describe('WeaponSystem primary layer', () => {
     it('Lv0 fires primary every PRIMARY.intervalMs', () => {
@@ -165,5 +165,65 @@ describe('WeaponSystem swarm layer', () => {
         // 现在应回到 normal cycle：第一个 burst 一发应立即可发
         const shots = ws.tick(SWARM.swarmRateMs);
         expect(shots.filter((s) => s.layer === 'swarm')).toHaveLength(SWARM.pellets.length);
+    });
+});
+
+describe('WeaponSystem tracker layer', () => {
+    it('Lv2 has no tracker', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(2);
+        const shots = ws.tick(TRACKER.intervalMs);
+        expect(shots.filter((s) => s.layer === 'tracker')).toHaveLength(0);
+    });
+
+    it('Lv3 fires 1 tracker every TRACKER.intervalMs', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(3);
+        const shots = ws.tick(TRACKER.intervalMs);
+        expect(shots.filter((s) => s.layer === 'tracker')).toHaveLength(1);
+        const shots2 = ws.tick(TRACKER.intervalMs - 1);
+        expect(shots2.filter((s) => s.layer === 'tracker')).toHaveLength(0);
+    });
+
+    it('Lv4 fires 2 trackers per shot, interval scaled by dualIntervalFactor', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(4);
+        const interval = TRACKER.intervalMs * TRACKER.dualIntervalFactor;
+        const shots = ws.tick(interval);
+        expect(shots.filter((s) => s.layer === 'tracker')).toHaveLength(2);
+    });
+
+    it('overdrive scales tracker interval by overdriveFactor', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(3);
+        ws.enterOverdrive();
+        const interval = TRACKER.intervalMs * TRACKER.overdriveFactor;
+        const shots = ws.tick(interval);
+        expect(shots.filter((s) => s.layer === 'tracker')).toHaveLength(1);
+    });
+
+    it('tracker ShotSpec kind = tracker, damage = TRACKER.damage, lifetimeMs = TRACKER.lifetimeMs', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(3);
+        const shots = ws.tick(TRACKER.intervalMs);
+        const trackers = shots.filter((s) => s.layer === 'tracker');
+        expect(trackers).toHaveLength(1);
+        const t = trackers[0]!;
+        expect(t.kind).toBe('tracker');
+        expect(t.damage).toBe(TRACKER.damage);
+        expect(t.lifetimeMs).toBe(TRACKER.lifetimeMs);
+    });
+
+    it('Lv4 dual trackers have symmetric ox offsets', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(4);
+        const interval = TRACKER.intervalMs * TRACKER.dualIntervalFactor;
+        const shots = ws.tick(interval);
+        const trackers = shots.filter((s) => s.layer === 'tracker');
+        expect(trackers).toHaveLength(2);
+        const oxs = trackers.map((t) => t.ox).sort((a, b) => a - b);
+        expect(oxs[0]).toBeLessThan(0);
+        expect(oxs[1]).toBeGreaterThan(0);
+        expect(Math.abs(oxs[0]!)).toBe(oxs[1]!);
     });
 });
