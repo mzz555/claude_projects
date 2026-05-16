@@ -10,7 +10,8 @@ export const planeManifest: AssetManifest = {
         { key: 'enemy-5', url: 'static/飞机png/enemy/enemy-5.png' },
         { key: 'enemy-6', url: 'static/飞机png/enemy/enemy-6.png' },
         { key: 'enemy-7', url: 'static/飞机png/enemy/enemy-7.png' },
-        { key: 'bullet-hero', url: 'static/子弹/bullet-hero.png' }
+        { key: 'bullet-hero', url: 'static/子弹/bullet-hero.png' },
+        { key: 'jet-flame', url: 'static/飞机尾部脉冲/jet-pulse-blue.png' }
     ],
     spritesheets: [
         { key: 'hit-spark', url: 'static/特效/hit-spark.png', frameW: 260, frameH: 180 }
