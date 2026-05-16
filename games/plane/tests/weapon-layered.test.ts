@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { WeaponSystem } from '../src/systems/WeaponSystem.js';
-import { PRIMARY } from '../src/data/weapons.js';
+import { PRIMARY, SPREAD } from '../src/data/weapons.js';
 
 describe('WeaponSystem primary layer', () => {
     it('Lv0 fires primary every PRIMARY.intervalMs', () => {
@@ -35,5 +35,37 @@ describe('WeaponSystem primary layer', () => {
         ws.tick(PRIMARY.intervalMs); // 消耗首帧 cooldown=0 的立即触发，下一发需要等 interval
         expect(ws.tick(PRIMARY.intervalMs - 1).filter((s) => s.layer === 'primary')).toHaveLength(0);
         expect(ws.tick(1).filter((s) => s.layer === 'primary')).toHaveLength(1);
+    });
+});
+
+describe('WeaponSystem spread layer', () => {
+    it('Lv1 fires primary + 2 spread together (3 shots per tick)', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(1);
+        const shots = ws.tick(PRIMARY.intervalMs);
+        expect(shots.filter((s) => s.layer === 'primary')).toHaveLength(1);
+        expect(shots.filter((s) => s.layer === 'spread')).toHaveLength(2);
+    });
+
+    it('Lv0 has no spread', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(0);
+        const shots = ws.tick(PRIMARY.intervalMs);
+        expect(shots.filter((s) => s.layer === 'spread')).toHaveLength(0);
+    });
+
+    it('spread shots use SPREAD constants (offsetX, vy, color)', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(1);
+        const shots = ws.tick(PRIMARY.intervalMs);
+        const spreads = shots.filter((s) => s.layer === 'spread');
+        expect(spreads).toHaveLength(2);
+        const left = spreads.find((s) => s.ox < 0)!;
+        const right = spreads.find((s) => s.ox > 0)!;
+        expect(left.ox).toBe(-SPREAD.offsetX);
+        expect(right.ox).toBe(SPREAD.offsetX);
+        expect(left.vy).toBe(SPREAD.vy);
+        expect(right.vy).toBe(SPREAD.vy);
+        expect(left.color).toBe(SPREAD.color);
     });
 });

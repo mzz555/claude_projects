@@ -1,4 +1,4 @@
-import { WEAPONS, PRIMARY, OVERDRIVE, type WeaponLevelSpec } from '../data/weapons.js';
+import { WEAPONS, PRIMARY, SPREAD, OVERDRIVE, type WeaponLevelSpec } from '../data/weapons.js';
 
 export type ShotLayer = 'primary' | 'spread' | 'swarm' | 'tracker';
 
@@ -90,5 +90,29 @@ export class WeaponSystem {
             vy: -PRIMARY.bulletSpeed,
             damage: PRIMARY.damage
         });
+        // 副炮层与主炮共享同一次 cooldown 触发：原版行为为 if(cd<=0){...; bullets.push(主炮); if(fireLevel>=1){副炮}}
+        // 故此处不维护独立 spreadCooldown，由主炮的 cooldown 决定何时联动喷出两道斜向弹
+        if (spec.layers.spread) {
+            out.push({
+                layer: 'spread',
+                kind: 'bullet',
+                ox: -SPREAD.offsetX,
+                oy: -10,
+                vx: 0,
+                vy: SPREAD.vy,
+                damage: SPREAD.damage,
+                color: SPREAD.color
+            });
+            out.push({
+                layer: 'spread',
+                kind: 'bullet',
+                ox: SPREAD.offsetX,
+                oy: -10,
+                vx: 0,
+                vy: SPREAD.vy,
+                damage: SPREAD.damage,
+                color: SPREAD.color
+            });
+        }
     }
 }
