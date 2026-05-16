@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { WeaponSystem } from '../src/systems/WeaponSystem.js';
-import { PRIMARY, SPREAD, SWARM, TRACKER } from '../src/data/weapons.js';
+import { PRIMARY, SPREAD, SWARM, TRACKER, BEAM } from '../src/data/weapons.js';
 
 describe('WeaponSystem primary layer', () => {
     it('Lv0 fires primary every PRIMARY.intervalMs', () => {
@@ -225,5 +225,75 @@ describe('WeaponSystem tracker layer', () => {
         expect(oxs[0]).toBeLessThan(0);
         expect(oxs[1]).toBeGreaterThan(0);
         expect(Math.abs(oxs[0]!)).toBe(oxs[1]!);
+    });
+});
+
+describe('WeaponSystem beam layer', () => {
+    it('Lv4 has no beam state', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(4);
+        expect(ws.tickBeam(16)).toBeNull();
+    });
+
+    it('Lv5 starts idle, transitions to charging after idleMs, then firing after chargeMs', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(5);
+        // idle 期内
+        const s1 = ws.tickBeam(BEAM.idleMs - 1);
+        expect(s1?.state).toBe('idle');
+        // 跨过 idle 阈值 → 进入 charging
+        const s2 = ws.tickBeam(2);
+        expect(s2?.state).toBe('charging');
+        // 充能完成，进入 firing
+        const s3 = ws.tickBeam(BEAM.chargeMs);
+        expect(s3?.state).toBe('firing');
+    });
+
+    it('Lv5 firing width ramps from widthStart to ~widthEnd', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(5);
+        ws.tickBeam(BEAM.idleMs + BEAM.chargeMs); // 进入 firing 起点
+        const sStart = ws.tickBeam(0);
+        expect(sStart?.state).toBe('firing');
+        expect(sStart?.width).toBeCloseTo(BEAM.widthStart, 1);
+        const sNearEnd = ws.tickBeam(BEAM.fireMs - 1);
+        expect(sNearEnd?.state).toBe('firing');
+        expect(sNearEnd?.width).toBeGreaterThan(BEAM.widthEnd - 1);
+    });
+
+    it('Lv5 firing damagePerSec ramps from damageStartPerSec to damageEndPerSec', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(5);
+        ws.tickBeam(BEAM.idleMs + BEAM.chargeMs);
+        const sStart = ws.tickBeam(0);
+        expect(sStart?.damagePerSec).toBeCloseTo(BEAM.damageStartPerSec, 1);
+        const sNearEnd = ws.tickBeam(BEAM.fireMs - 1);
+        expect(sNearEnd?.damagePerSec).toBeGreaterThan(BEAM.damageEndPerSec - 1);
+    });
+
+    it('Lv5 firing cycles back to idle after fireMs', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(5);
+        ws.tickBeam(BEAM.idleMs + BEAM.chargeMs + BEAM.fireMs);
+        const s = ws.tickBeam(0);
+        // 走完 fireMs 后回到 idle
+        expect(s?.state).toBe('idle');
+    });
+
+    it('overdrive doubles widthStart at Lv5 firing start', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(5);
+        ws.enterOverdrive();
+        ws.tickBeam(BEAM.idleMs + BEAM.chargeMs);
+        const s = ws.tickBeam(0);
+        expect(s?.width).toBeCloseTo(BEAM.overdriveWidthStart, 1);
+    });
+
+    it('Lv6 also has beam (regression: overdrive level retains beam layer)', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(6);
+        const s = ws.tickBeam(16);
+        expect(s).not.toBeNull();
+        expect(s?.state).toBe('idle');
     });
 });

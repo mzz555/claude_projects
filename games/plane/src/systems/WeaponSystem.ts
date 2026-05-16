@@ -1,4 +1,4 @@
-import { WEAPONS, PRIMARY, SPREAD, SWARM, TRACKER, OVERDRIVE, type WeaponLevelSpec } from '../data/weapons.js';
+import { WEAPONS, PRIMARY, SPREAD, SWARM, TRACKER, BEAM, OVERDRIVE, type WeaponLevelSpec } from '../data/weapons.js';
 
 export type ShotLayer = 'primary' | 'spread' | 'swarm' | 'tracker';
 
@@ -28,11 +28,14 @@ export class WeaponSystem {
     private swarmCooldown = 0;
     private trackerCooldown = 0;
     private overdriveRemainingMs = 0;
+    private beamState: 'idle' | 'charging' | 'firing' = 'idle';
+    private beamStateElapsed = 0;
 
     /**
      * 切换武器等级。
      *
-     * 重置：所有层的冷却计时器（primaryCooldown，后续 spread/swarm/tracker/beam 同样应重置）。
+     * 重置：所有层的冷却计时器（primaryCooldown / swarmCycleElapsed / swarmCooldown /
+     * trackerCooldown / beamState + beamStateElapsed）。
      * 不重置：overdriveRemainingMs（超频是独立时效性 buff，与等级无关）。
      */
     setLevel(level: number): void {
@@ -41,6 +44,8 @@ export class WeaponSystem {
         this.swarmCycleElapsed = 0;
         this.swarmCooldown = 0;
         this.trackerCooldown = 0;
+        this.beamState = 'idle';
+        this.beamStateElapsed = 0;
     }
 
     getLevel(): number {
@@ -57,17 +62,71 @@ export class WeaponSystem {
     }
 
     /**
-     * 激光层不产生抛射物 ShotSpec，而是返回一个状态机快照（idle/charging/firing）。
-     * 调用者须独立轮询此方法，不经过 tick() 的 ShotSpec[] 管道。
+     * 激光层：Lv5+ 启用，由 idle → charging → firing → idle 三态循环。
      *
-     * 返回值语义：
-     * - null：当前等级未启用激光层（Lv0-Lv4，或未来禁用激光的等级）
-     * - BeamState：当前激光状态机快照
+     * - idle: BEAM.idleMs（2s）等待，期间无激光
+     * - charging: BEAM.chargeMs（1s）充能，期间无伤害
+     * - firing: BEAM.fireMs（4s）发射，width 和 damagePerSec 从 widthStart/damageStartPerSec
+     *   线性递增到 widthEnd/damageEndPerSec
      *
-     * M4f-6 任务实现具体状态机；当前为占位。
+     * 超频影响：firing 起点 widthStart 由 BEAM.widthStart 变为 BEAM.overdriveWidthStart（翻倍）。
+     *
+     * 返回值：
+     * - null：当前等级未启用激光层（Lv0-Lv4）
+     * - BeamState：当前状态机快照
+     *
+     * 不进入 tick() 的 ShotSpec[] 管道，由调用方独立轮询并渲染。
+     *
+     * 状态切换用连续 if（非 else if）：允许单帧巨步 dtMs 一次性推进多个状态边界，
+     * 保持正确性（60fps 实际不触发，但写法上抗大步长）。
      */
-    tickBeam(_dtMs: number): BeamState | null {
-        return null;
+    tickBeam(dtMs: number): BeamState | null {
+        const spec = WEAPONS[this.level]!;
+        if (!spec.layers.beam) return null;
+
+        this.beamStateElapsed += dtMs;
+        // 状态切换时把溢出的时间结转到下一状态（elapsed -= threshold），保证巨步 dtMs
+        // 能在单次 tick 内一次性穿越多个边界（如 dtMs = idleMs + chargeMs 应直接到 firing 起点）
+        if (this.beamState === 'idle' && this.beamStateElapsed >= BEAM.idleMs) {
+            this.beamStateElapsed -= BEAM.idleMs;
+            this.beamState = 'charging';
+        }
+        if (this.beamState === 'charging' && this.beamStateElapsed >= BEAM.chargeMs) {
+            this.beamStateElapsed -= BEAM.chargeMs;
+            this.beamState = 'firing';
+        }
+        if (this.beamState === 'firing' && this.beamStateElapsed >= BEAM.fireMs) {
+            this.beamStateElapsed -= BEAM.fireMs;
+            this.beamState = 'idle';
+        }
+
+        if (this.beamState === 'idle') {
+            return {
+                state: 'idle',
+                tNormalized: this.beamStateElapsed / BEAM.idleMs,
+                width: 0,
+                damagePerSec: 0
+            };
+        }
+        if (this.beamState === 'charging') {
+            return {
+                state: 'charging',
+                tNormalized: this.beamStateElapsed / BEAM.chargeMs,
+                width: 0,
+                damagePerSec: 0
+            };
+        }
+        const t = this.beamStateElapsed / BEAM.fireMs;
+        const ws = this.isOverdrive() ? BEAM.overdriveWidthStart : BEAM.widthStart;
+        const we = BEAM.widthEnd;
+        return {
+            state: 'firing',
+            tNormalized: t,
+            width: ws + (we - ws) * t,
+            damagePerSec:
+                BEAM.damageStartPerSec +
+                (BEAM.damageEndPerSec - BEAM.damageStartPerSec) * t
+        };
     }
 
     tick(dtMs: number): ShotSpec[] {
