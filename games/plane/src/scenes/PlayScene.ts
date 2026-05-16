@@ -3,16 +3,17 @@ import { PLANE_THEME, PLAY_AREA } from '../data/theme.js';
 import { Player } from '../entities/Player.js';
 import { Bullet, makeBulletPool } from '../entities/Bullet.js';
 import { Enemy, makeEnemyPool } from '../entities/Enemy.js';
+import { Tracker, makeTrackerPool } from '../entities/Tracker.js';
 import { WeaponSystem, type ShotSpec } from '../systems/WeaponSystem.js';
 import { WaveDirector } from '../systems/WaveDirector.js';
 import { updateBehavior, type BehaviorTarget } from '../systems/EnemyBehavior.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
-import { WEAPONS } from '../data/weapons.js';
 import { E } from '../events.js';
 
 export class PlayScene extends Phaser.Scene {
     private player!: Player;
     private bullets!: Phaser.Physics.Arcade.Group;
+    private trackers!: Phaser.Physics.Arcade.Group;
     private enemies!: Phaser.Physics.Arcade.Group;
     private weapon = new WeaponSystem();
     private director!: WaveDirector;
@@ -55,6 +56,7 @@ export class PlayScene extends Phaser.Scene {
             kbSource
         );
         this.bullets = makeBulletPool(this, 256);
+        this.trackers = makeTrackerPool(this, 32);
         this.enemies = makeEnemyPool(this, 64);
 
         this.director = new WaveDirector({
@@ -68,6 +70,22 @@ export class PlayScene extends Phaser.Scene {
             player: this.player,
             enemies: this.enemies,
             bullets: this.bullets
+        });
+
+        this.physics.add.overlap(this.trackers, this.enemies, (a, b) => {
+            const tracker = a as Tracker;
+            const enemy = b as Enemy;
+            if (!tracker.active || !enemy.active) return;
+            const killed = enemy.takeDamage(tracker.damage);
+            tracker.deactivate();
+            if (killed) {
+                this.events.emit(E.EnemyKilled, {
+                    enemyType: enemy.typeKey,
+                    score: enemy.score,
+                    x: enemy.x,
+                    y: enemy.y
+                });
+            }
         });
 
         this.scoreText = this.add.text(20, 20, '', {
@@ -101,9 +119,7 @@ export class PlayScene extends Phaser.Scene {
         this.player.tick();
 
         const specs = this.weapon.tick(delta);
-        for (const spec of specs) {
-            if (spec.kind === 'bullet') this.fireSpec(spec);
-        }
+        for (const spec of specs) this.fireSpec(spec);
 
         const reqs = this.director.tick(delta);
         for (const r of reqs) {
@@ -148,20 +164,62 @@ export class PlayScene extends Phaser.Scene {
             (b as Bullet).recycleIfOffscreen(PLAY_AREA.y);
             return null;
         });
+
+        this.trackers.children.iterate((obj) => {
+            const t = obj as Tracker;
+            if (!t.active) return null;
+            const tgt = this.pickNearestEnemy(t.x, t.y);
+            t.updateTracking(tgt, delta);
+            return null;
+        });
     }
 
     private fireSpec(spec: ShotSpec): void {
-        const bullet = this.bullets.get() as Bullet | null;
-        if (!bullet) return;
-        bullet.fire({
-            x: this.player.x + spec.ox,
-            y: this.player.y + spec.oy,
-            vx: spec.vx,
-            vy: spec.vy,
-            damage: spec.damage,
-            color: 0x7df9ff
-        });
+        if (spec.kind === 'bullet') {
+            const bullet = this.bullets.get() as Bullet | null;
+            if (!bullet) return;
+            bullet.fire({
+                x: this.player.x + spec.ox,
+                y: this.player.y + spec.oy,
+                vx: spec.vx,
+                vy: spec.vy,
+                damage: spec.damage,
+                color: 0x7df9ff
+            });
+        } else if (spec.kind === 'tracker') {
+            const tracker = this.trackers.get() as Tracker | null;
+            if (!tracker) return;
+            tracker.fire({
+                x: this.player.x + spec.ox,
+                y: this.player.y + spec.oy,
+                vx: spec.vx,
+                vy: spec.vy,
+                damage: spec.damage,
+                lifetimeMs: spec.lifetimeMs ?? 5000,
+                maxSpeed: 360
+            });
+        }
         this.events.emit(E.PlayerFire, { weaponLevel: this.weapon.getLevel() });
+    }
+
+    private pickNearestEnemy(
+        fx: number,
+        fy: number
+    ): { x: number; y: number; active: boolean } | null {
+        let best: Enemy | null = null;
+        let bestDistSq = Infinity;
+        this.enemies.children.iterate((obj) => {
+            const e = obj as Enemy;
+            if (!e.active) return null;
+            const dSq = (e.x - fx) ** 2 + (e.y - fy) ** 2;
+            if (dSq < bestDistSq) {
+                best = e;
+                bestDistSq = dSq;
+            }
+            return null;
+        });
+        if (!best) return null;
+        return { x: (best as Enemy).x, y: (best as Enemy).y, active: true };
     }
 
     private refreshHud(): void {

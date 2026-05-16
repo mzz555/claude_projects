@@ -7,6 +7,8 @@ export interface ShotSpec {
     vx: number;
     vy: number;
     damage: number;
+    /** tracker 用 */
+    lifetimeMs?: number;
 }
 
 interface BurstState {
@@ -39,6 +41,8 @@ export class WeaponSystem {
                 return this.tickSpread(dtMs, w);
             case 'burst':
                 return this.tickBurst(dtMs, w);
+            case 'tracker':
+                return this.tickTracker(dtMs, w);
             default:
                 return [];
         }
@@ -73,6 +77,28 @@ export class WeaponSystem {
             vy: -Math.cos(a) * w.bulletSpeed,
             damage: w.damage
         }));
+    }
+
+    private tickTracker(dtMs: number, w: WeaponLevel): ShotSpec[] {
+        this.cooldown -= dtMs;
+        if (this.cooldown > 0) return [];
+        this.cooldown = w.intervalMs;
+        const count = w.trackerCount ?? 1;
+        const lifetime = w.lifetimeMs ?? 5000;
+        const specs: ShotSpec[] = [];
+        for (let i = 0; i < count; i++) {
+            const offsetX = count === 1 ? 0 : i === 0 ? -16 : 16;
+            specs.push({
+                kind: 'tracker',
+                ox: offsetX,
+                oy: -30,
+                vx: 0,
+                vy: -w.bulletSpeed,
+                damage: w.damage,
+                lifetimeMs: lifetime
+            });
+        }
+        return specs;
     }
 
     private tickBurst(dtMs: number, w: WeaponLevel): ShotSpec[] {
