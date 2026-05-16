@@ -20,11 +20,13 @@ import { SFX } from '../data/sfxKeys.js';
 import { SfxBank } from '../audio/sfxBank.js';
 import {
     decideDrop,
+    decideMeteorDrop,
     applyEffect,
-    POWER_COOLDOWN_MS
+    POWER_COOLDOWN_MS,
+    type PlayerNeeds
 } from '../systems/PowerupSystem.js';
 import { WeaponSystem, type BeamState, type ShotSpec } from '../systems/WeaponSystem.js';
-import { WEAPONS } from '../data/weapons.js';
+import { WEAPONS, MAX_LEVEL } from '../data/weapons.js';
 import { ENEMY_TYPES, type EnemyTypeKey } from '../data/enemyTypes.js';
 import type { PowerupKey } from '../data/powerups.js';
 import { WaveDirector } from '../systems/WaveDirector.js';
@@ -192,6 +194,7 @@ export class PlayScene extends Phaser.Scene {
                         meta.tier,
                         this.onscreenPowerupKeys,
                         this.powerCooldownMs,
+                        this.currentPlayerNeeds(),
                         Math.random
                     );
                     if (dropKey) {
@@ -212,13 +215,13 @@ export class PlayScene extends Phaser.Scene {
         this.events.on('meteor-broken', (p: { x: number; y: number }) => {
             this.sfx.playSfx(SFX.MeteorBreak);
             if (Math.random() < METEOR_DROP_RATE) {
-                const allKeys: PowerupKey[] = ['power', 'shield', 'ally', 'hp', 'speed'];
-                const available = allKeys.filter((k) => !this.onscreenPowerupKeys.has(k));
-                if (available.length > 0) {
-                    const idx = Math.floor(Math.random() * available.length);
-                    const key = available[idx]!;
-                    this.spawnPowerupEntity(p.x, p.y, key);
-                }
+                const key = decideMeteorDrop(
+                    this.onscreenPowerupKeys,
+                    this.powerCooldownMs,
+                    this.currentPlayerNeeds(),
+                    Math.random
+                );
+                if (key) this.spawnPowerupEntity(p.x, p.y, key);
             }
         });
 
@@ -501,6 +504,16 @@ export class PlayScene extends Phaser.Scene {
         });
         if (!best) return null;
         return { x: (best as Enemy).x, y: (best as Enemy).y, active: true };
+    }
+
+    private currentPlayerNeeds(): PlayerNeeds {
+        return {
+            needsHp: this.player.needsHp(),
+            needsSpeed: this.player.needsSpeed(),
+            needsShield: this.player.needsShield(),
+            needsAlly: this.allySystem.getCharges() < 5,
+            fireLevelMaxed: this.weapon.getLevel() >= MAX_LEVEL
+        };
     }
 
     private spawnPowerupEntity(x: number, y: number, key: PowerupKey): void {

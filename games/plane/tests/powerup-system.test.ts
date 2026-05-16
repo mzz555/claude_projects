@@ -2,8 +2,17 @@ import { describe, it, expect, vi } from 'vitest';
 import {
     decideDrop,
     applyEffect,
-    type PowerupEffectCtx
+    type PowerupEffectCtx,
+    type PlayerNeeds
 } from '../src/systems/PowerupSystem.js';
+
+const allNeeds: PlayerNeeds = {
+    needsHp: true,
+    needsSpeed: true,
+    needsShield: true,
+    needsAlly: true,
+    fireLevelMaxed: false
+};
 
 function makeCtx(overrides: Partial<PowerupEffectCtx> = {}): PowerupEffectCtx {
     return {
@@ -25,23 +34,25 @@ function makeCtx(overrides: Partial<PowerupEffectCtx> = {}): PowerupEffectCtx {
 
 describe('PowerupSystem/decideDrop 概率', () => {
     it('tier=1 rand=0.02 命中 -> 返回某个 key', () => {
-        const r = decideDrop(1, new Set(), 0, () => 0.02);
+        const r = decideDrop(1, new Set(), 0, allNeeds, () => 0.02);
         expect(r).not.toBeNull();
     });
 
     it('tier=1 rand=0.5 未命中 -> 返回 null', () => {
-        const r = decideDrop(1, new Set(), 0, () => 0.5);
+        const r = decideDrop(1, new Set(), 0, allNeeds, () => 0.5);
         expect(r).toBeNull();
     });
 
     it('tier=4 rand=0.4 命中', () => {
-        const r = decideDrop(4, new Set(), 0, () => 0.4);
+        const r = decideDrop(4, new Set(), 0, allNeeds, () => 0.4);
         expect(r).not.toBeNull();
     });
 
     it('onscreen 已包含 power 且冷却中 -> 优先非 power', () => {
-        const r = decideDrop(4, new Set(['power']), 3000, () => 0);
+        // mockRand：rate roll 0 通过；power 不 eligible（cooldown 3000）；needs 列表非空
+        const r = decideDrop(4, new Set(['power']), 3000, allNeeds, () => 0);
         expect(r).not.toBe('power');
+        expect(r).not.toBeNull();
     });
 });
 

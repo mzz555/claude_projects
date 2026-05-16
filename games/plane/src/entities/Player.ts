@@ -78,4 +78,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     justPressedCallAlly(): boolean {
         return this.inputMap.justPressed('callAlly');
     }
+
+    needsHp(): boolean {
+        return this.hp < this.maxHp - 2;
+    }
+
+    needsSpeed(): boolean {
+        return this.speedBoostRemainingMs === 0;
+    }
+
+    needsShield(): boolean {
+        return this.shieldRemainingMs === 0;
+    }
 }
