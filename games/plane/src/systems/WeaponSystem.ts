@@ -79,7 +79,8 @@ export class WeaponSystem {
         this.primaryCooldown -= dtMs;
         if (this.primaryCooldown > 0) return;
         const interval = this.isOverdrive() ? PRIMARY.overdriveIntervalMs : PRIMARY.intervalMs;
-        this.primaryCooldown += interval;
+        // 用 `=` 而非 `+= interval`：游戏 60fps 下 dtMs (~17ms) 远小于 interval (133ms)，不会出现跨越多个周期的低帧率漂移；用 `=` 让“首帧立即触发”后下一发严格等满 interval，与原版行为一致且测试可精确断言
+        this.primaryCooldown = interval;
         out.push({
             layer: 'primary',
             kind: 'bullet',
