@@ -1,4 +1,4 @@
-import { WEAPONS, PRIMARY, SPREAD, OVERDRIVE, type WeaponLevelSpec } from '../data/weapons.js';
+import { WEAPONS, PRIMARY, SPREAD, SWARM, OVERDRIVE, type WeaponLevelSpec } from '../data/weapons.js';
 
 export type ShotLayer = 'primary' | 'spread' | 'swarm' | 'tracker';
 
@@ -24,6 +24,8 @@ export interface BeamState {
 export class WeaponSystem {
     private level = 0;
     private primaryCooldown = 0;
+    private swarmCycleElapsed = 0;
+    private swarmCooldown = 0;
     private overdriveRemainingMs = 0;
 
     /**
@@ -35,6 +37,8 @@ export class WeaponSystem {
     setLevel(level: number): void {
         this.level = Math.max(0, Math.min(WEAPONS.length - 1, level));
         this.primaryCooldown = 0;
+        this.swarmCycleElapsed = 0;
+        this.swarmCooldown = 0;
     }
 
     getLevel(): number {
@@ -71,6 +75,7 @@ export class WeaponSystem {
         const spec = WEAPONS[this.level]!;
         const shots: ShotSpec[] = [];
         this.tickPrimary(spec, dtMs, shots);
+        this.tickSwarm(spec, dtMs, shots);
         return shots;
     }
 
@@ -105,6 +110,50 @@ export class WeaponSystem {
                     color: SPREAD.color
                 });
             }
+        }
+    }
+
+    /**
+     * 蜂群层：与主炮/副炮 cooldown 完全独立的双闸门周期。
+     *
+     * 非超频：300ms 周期 = 前 100ms burst 窗口（每 33ms 发 6 颗）+ 后 200ms 静默。
+     * 超频：绕过 cycle 闸门，按 17ms 持续发射 6 颗（无静默期）。
+     */
+    private tickSwarm(spec: WeaponLevelSpec, dtMs: number, out: ShotSpec[]): void {
+        if (!spec.layers.swarm) return;
+        if (this.isOverdrive()) {
+            // 超频：忽略 cycle 闸门，按 overdriveSwarmRateMs 持续
+            this.swarmCooldown -= dtMs;
+            if (this.swarmCooldown > 0) return;
+            this.swarmCooldown = SWARM.overdriveSwarmRateMs;
+            this.emitSwarmPellets(out);
+            return;
+        }
+        this.swarmCycleElapsed = (this.swarmCycleElapsed + dtMs) % SWARM.cycleIntervalMs;
+        const inBurst = this.swarmCycleElapsed < SWARM.burstDurMs;
+        if (!inBurst) {
+            this.swarmCooldown = 0;
+            return;
+        }
+        this.swarmCooldown -= dtMs;
+        if (this.swarmCooldown > 0) return;
+        this.swarmCooldown = SWARM.swarmRateMs;
+        this.emitSwarmPellets(out);
+    }
+
+    /** 一次发射 6 颗 swarm pellet（普通 + 超频共用） */
+    private emitSwarmPellets(out: ShotSpec[]): void {
+        for (const p of SWARM.pellets) {
+            out.push({
+                layer: 'swarm',
+                kind: 'bullet',
+                ox: p.ox,
+                oy: -8,
+                vx: p.vxFactor * SWARM.bulletSpeed,
+                vy: p.vyFactor * SWARM.bulletSpeed,
+                damage: SWARM.damage,
+                color: 0xffee00
+            });
         }
     }
 }
