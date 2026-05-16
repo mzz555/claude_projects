@@ -13,6 +13,7 @@ import {
     shouldConfront,
     type BehaviorTarget
 } from '../systems/EnemyBehavior.js';
+import { updateBossBehavior } from '../systems/BossBehavior.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { E } from '../events.js';
 
@@ -24,6 +25,7 @@ export class PlayScene extends Phaser.Scene {
     private weapon = new WeaponSystem();
     private beam!: Beam;
     private beamDamageBucket = 0;
+    private fields: Phaser.Physics.Arcade.Image[] = [];
     private director!: WaveDirector;
 
     private score = 0;
@@ -173,6 +175,18 @@ export class PlayScene extends Phaser.Scene {
             if (!e.confronting && shouldConfront(e.typeKey, e.y, this.player.y)) {
                 e.confronting = true;
             }
+            for (const fx of updateBossBehavior(e, delta)) {
+                if (fx.kind === 'bomber-field') {
+                    this.spawnBomberField(fx.x, fx.y);
+                } else if (fx.kind === 'carrier-spawn') {
+                    for (const s of fx.spawns) {
+                        const child = this.enemies.get() as Enemy | null;
+                        if (child) {
+                            child.spawn({ typeKey: 'scout', x: s.x, y: s.y, vy: 80 });
+                        }
+                    }
+                }
+            }
             if (e.typeKey === 'interceptor') {
                 if (e.x < PLAY_AREA.x + 20) e.sweepDir = 1;
                 else if (e.x > PLAY_AREA.x + PLAY_AREA.w - 20) e.sweepDir = -1;
@@ -192,6 +206,37 @@ export class PlayScene extends Phaser.Scene {
             const tgt = this.pickNearestEnemy(t.x, t.y);
             t.updateTracking(tgt, delta);
             return null;
+        });
+
+        // bomber 电场寿命与清理
+        this.fields = this.fields.filter((f) => {
+            const left = (f.getData('lifetimeMs') as number) - delta;
+            if (left <= 0 || f.y > PLAY_AREA.y + PLAY_AREA.h + 100) {
+                f.destroy();
+                return false;
+            }
+            f.setData('lifetimeMs', left);
+            return true;
+        });
+    }
+
+    private spawnBomberField(x: number, y: number): void {
+        if (!this.textures.exists('__FIELD__')) {
+            const g = this.add.graphics();
+            g.fillStyle(0xffaa00, 0.3);
+            g.fillCircle(60, 60, 60);
+            g.generateTexture('__FIELD__', 120, 120);
+            g.destroy();
+        }
+        const field = this.physics.add.image(x, y + 80, '__FIELD__');
+        (field.body as Phaser.Physics.Arcade.Body).setCircle(60);
+        field.setData('damage', 2);
+        field.setData('lifetimeMs', 1500);
+        field.setVelocity(0, 100);
+        this.fields.push(field);
+        this.physics.add.overlap(this.player, field, () => {
+            if (this.player.isShielded()) return;
+            this.events.emit(E.PlayerHit, { damage: field.getData('damage') as number });
         });
     }
 
