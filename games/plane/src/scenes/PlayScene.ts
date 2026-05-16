@@ -5,6 +5,8 @@ import { Bullet, makeBulletPool } from '../entities/Bullet.js';
 import { Enemy, makeEnemyPool } from '../entities/Enemy.js';
 import { Tracker, makeTrackerPool } from '../entities/Tracker.js';
 import { Beam } from '../entities/Beam.js';
+import { Ally } from '../entities/Ally.js';
+import { AllySystem } from '../systems/AllySystem.js';
 import { WeaponSystem, type BeamState, type ShotSpec } from '../systems/WeaponSystem.js';
 import { WEAPONS } from '../data/weapons.js';
 import { WaveDirector } from '../systems/WaveDirector.js';
@@ -26,6 +28,10 @@ export class PlayScene extends Phaser.Scene {
     private beam!: Beam;
     private beamDamageBucket = 0;
     private fields: Phaser.Physics.Arcade.Image[] = [];
+    private allyLeft!: Ally;
+    private allyRight!: Ally;
+    private allySystem = new AllySystem();
+    private alliesHud!: Phaser.GameObjects.Text;
     private director!: WaveDirector;
 
     private score = 0;
@@ -70,6 +76,9 @@ export class PlayScene extends Phaser.Scene {
         this.enemies = makeEnemyPool(this, 64);
         this.beam = new Beam(this);
         this.beamDamageBucket = 0;
+        this.allyLeft = new Ally(this, this.player.x - 60, this.player.y);
+        this.allyRight = new Ally(this, this.player.x + 60, this.player.y);
+        this.allySystem = new AllySystem();
 
         this.director = new WaveDirector({
             minX: PLAY_AREA.x + 60,
@@ -109,6 +118,11 @@ export class PlayScene extends Phaser.Scene {
             fontFamily: PLANE_THEME.fontFamily,
             fontSize: '20px',
             color: PLANE_THEME.text
+        });
+        this.alliesHud = this.add.text(20, 80, '', {
+            fontFamily: PLANE_THEME.fontFamily,
+            fontSize: '20px',
+            color: PLANE_THEME.secondary
         });
         this.refreshHud();
 
@@ -207,6 +221,24 @@ export class PlayScene extends Phaser.Scene {
             t.updateTracking(tgt, delta);
             return null;
         });
+
+        // 僚机召唤
+        if (this.player.justPressedCallAlly()) {
+            if (
+                !this.allyLeft.active &&
+                !this.allyRight.active &&
+                this.allySystem.tryDeploy()
+            ) {
+                this.allyLeft.deploy({ x: this.player.x - 60, y: this.player.y });
+                this.allyRight.deploy({ x: this.player.x + 60, y: this.player.y });
+                this.refreshHud();
+            }
+        }
+
+        const fireL = this.allyLeft.tickAlly(delta, this.player.x, this.player.y, -60);
+        const fireR = this.allyRight.tickAlly(delta, this.player.x, this.player.y, 60);
+        if (fireL) this.fireAllyBullet(this.allyLeft.x);
+        if (fireR) this.fireAllyBullet(this.allyRight.x);
 
         // bomber 电场寿命与清理
         this.fields = this.fields.filter((f) => {
@@ -319,8 +351,22 @@ export class PlayScene extends Phaser.Scene {
         return { x: (best as Enemy).x, y: (best as Enemy).y, active: true };
     }
 
+    private fireAllyBullet(x: number): void {
+        const bullet = this.bullets.get() as Bullet | null;
+        if (!bullet) return;
+        bullet.fire({
+            x,
+            y: this.player.y - 20,
+            vx: 0,
+            vy: -660,
+            damage: 1,
+            color: 0x9d4edd
+        });
+    }
+
     private refreshHud(): void {
         this.scoreText.setText(`分数 ${this.score}    击杀 ${this.kills}`);
         this.hpText.setText(`HP ${this.player.hp} / ${this.player.maxHp}`);
+        this.alliesHud.setText(`支援 ${this.allySystem.getCharges()}`);
     }
 }
