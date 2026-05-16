@@ -91,7 +91,7 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         h: 56,
         vyMin: 15,
         vyMax: 30,
-        sprite: 'enemy-4'
+        sprite: 'enemy-6'
     },
     carrier: {
         label: '母舰',
@@ -103,6 +103,6 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         h: 70,
         vyMin: 11,
         vyMax: 21,
-        sprite: 'enemy-5'
+        sprite: 'enemy-7'
     }
 };
