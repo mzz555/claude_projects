@@ -64,9 +64,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             // 脉冲：宽度 12% 震荡，长度按加速 buff 拉长 1.5×；alpha 微跳
             const pulse = 1 + Math.sin(this.jetPulseT * 18) * 0.12;
             const lengthMul = this.speedBoostRemainingMs > 0 ? 1.5 : 1;
-            // 贴图原始 887×1774，目标视觉约 14×40：宽 14/887≈0.016，高 40/1774≈0.023
+            // 贴图原始 887×1774，目标视觉约 14×22：宽 14/887≈0.016，高 22/1774≈0.0125
             const sx = 0.016 * pulse;
-            const sy = 0.023 * lengthMul;
+            const sy = 0.0125 * lengthMul;
             const a = 0.85 + Math.sin(this.jetPulseT * 22) * 0.1;
             const offsets = [-11, 11];
             for (let i = 0; i < this.jetFlames.length; i++) {
