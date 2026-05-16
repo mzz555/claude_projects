@@ -16,6 +16,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     behaviorTime = 0;
     spawnX = 0;
     sweepDir: 1 | -1 = 1;
+    confronting = false;
+    fieldTimer = 0;
+    spawnTimer = 0;
 
     constructor(scene: Phaser.Scene, x: number, y: number) {
         super(scene, x, y, 'enemy-1');
@@ -32,6 +35,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.behaviorTime = 0;
         this.spawnX = args.x;
         this.sweepDir = Math.random() < 0.5 ? 1 : -1;
+        this.confronting = false;
+        this.fieldTimer = 0;
+        this.spawnTimer = 0;
 
         this.setActive(true);
         this.setVisible(true);

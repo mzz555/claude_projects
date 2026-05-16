@@ -8,7 +8,11 @@ import { Beam } from '../entities/Beam.js';
 import { WeaponSystem, type BeamState, type ShotSpec } from '../systems/WeaponSystem.js';
 import { WEAPONS } from '../data/weapons.js';
 import { WaveDirector } from '../systems/WaveDirector.js';
-import { updateBehavior, type BehaviorTarget } from '../systems/EnemyBehavior.js';
+import {
+    updateBehavior,
+    shouldConfront,
+    type BehaviorTarget
+} from '../systems/EnemyBehavior.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { E } from '../events.js';
 
@@ -150,6 +154,7 @@ export class PlayScene extends Phaser.Scene {
         this.enemies.children.iterate((obj) => {
             const e = obj as Enemy;
             if (!e.active) return null;
+            const body = e.body as Phaser.Physics.Arcade.Body;
             const target: BehaviorTarget = {
                 typeKey: e.typeKey,
                 x: e.x,
@@ -157,12 +162,17 @@ export class PlayScene extends Phaser.Scene {
                 spawnX: e.spawnX,
                 behaviorTime: e.behaviorTime,
                 sweepDir: e.sweepDir,
-                getVelocityX: () => (e.body as Phaser.Physics.Arcade.Body).velocity.x,
-                setVelocityX: (v: number) =>
-                    (e.body as Phaser.Physics.Arcade.Body).setVelocityX(v)
+                confronting: e.confronting,
+                getVelocityX: () => body.velocity.x,
+                setVelocityX: (v: number) => body.setVelocityX(v),
+                getVelocityY: () => body.velocity.y,
+                setVelocityY: (v: number) => body.setVelocityY(v)
             };
             updateBehavior(target, dtSec, pX);
             e.behaviorTime = target.behaviorTime;
+            if (!e.confronting && shouldConfront(e.typeKey, e.y, this.player.y)) {
+                e.confronting = true;
+            }
             if (e.typeKey === 'interceptor') {
                 if (e.x < PLAY_AREA.x + 20) e.sweepDir = 1;
                 else if (e.x > PLAY_AREA.x + PLAY_AREA.w - 20) e.sweepDir = -1;

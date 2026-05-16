@@ -3,6 +3,7 @@ import { updateBehavior, type BehaviorTarget } from '../src/systems/EnemyBehavio
 
 function fake(typeKey: BehaviorTarget['typeKey'], opts: Partial<BehaviorTarget> = {}): BehaviorTarget {
     let vx = 0;
+    let vy = 0;
     return {
         typeKey,
         x: opts.x ?? 640,
@@ -10,9 +11,14 @@ function fake(typeKey: BehaviorTarget['typeKey'], opts: Partial<BehaviorTarget> 
         spawnX: opts.spawnX ?? 640,
         behaviorTime: 0,
         sweepDir: opts.sweepDir ?? 1,
+        confronting: opts.confronting ?? false,
         getVelocityX: () => vx,
         setVelocityX: (v: number) => {
             vx = v;
+        },
+        getVelocityY: () => vy,
+        setVelocityY: (v: number) => {
+            vy = v;
         }
     };
 }
