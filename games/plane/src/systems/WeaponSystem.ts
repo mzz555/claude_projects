@@ -32,6 +32,7 @@ export class WeaponSystem {
     private cooldown = 0;
     private burst: BurstState = { bursting: false, fired: 0, nextMs: 0 };
     private beamElapsed = 0;
+    private overdriveRemainingMs = 0;
 
     setLevel(level: number): void {
         this.level = Math.max(0, Math.min(WEAPONS.length - 1, level));
@@ -41,6 +42,9 @@ export class WeaponSystem {
     }
 
     tickBeam(dtMs: number): BeamState | null {
+        if (this.overdriveRemainingMs > 0) {
+            this.overdriveRemainingMs = Math.max(0, this.overdriveRemainingMs - dtMs);
+        }
         const w = WEAPONS[this.level]!;
         if (w.mode !== 'beam') return null;
         const charge = w.chargeMs ?? 1000;
@@ -57,7 +61,8 @@ export class WeaponSystem {
         }
         const tFire = this.beamElapsed - charge;
         const t = tFire / fire;
-        const ws = w.widthStart ?? 6;
+        const wsBase = w.widthStart ?? 6;
+        const ws = this.isOverdrive() ? wsBase * 2 : wsBase;
         const we = w.widthEnd ?? 17;
         const ds = w.damageStartPerSec ?? 12;
         const de = w.damageEndPerSec ?? 90;
@@ -73,7 +78,23 @@ export class WeaponSystem {
         return this.level;
     }
 
+    isOverdrive(): boolean {
+        return this.overdriveRemainingMs > 0;
+    }
+
+    enterOverdrive(): void {
+        const w6 = WEAPONS[6]!;
+        this.overdriveRemainingMs = w6.durationMs ?? 5000;
+    }
+
+    private effectiveInterval(base: number): number {
+        return this.isOverdrive() ? base * 0.5 : base;
+    }
+
     tick(dtMs: number): ShotSpec[] {
+        if (this.overdriveRemainingMs > 0) {
+            this.overdriveRemainingMs = Math.max(0, this.overdriveRemainingMs - dtMs);
+        }
         const w = WEAPONS[this.level]!;
         switch (w.mode) {
             case 'single':
@@ -92,7 +113,7 @@ export class WeaponSystem {
     private tickSingle(dtMs: number, w: WeaponLevel): ShotSpec[] {
         this.cooldown -= dtMs;
         if (this.cooldown > 0) return [];
-        this.cooldown = w.intervalMs;
+        this.cooldown = this.effectiveInterval(w.intervalMs);
         return [
             {
                 kind: 'bullet',
@@ -108,7 +129,7 @@ export class WeaponSystem {
     private tickSpread(dtMs: number, w: WeaponLevel): ShotSpec[] {
         this.cooldown -= dtMs;
         if (this.cooldown > 0) return [];
-        this.cooldown = w.intervalMs;
+        this.cooldown = this.effectiveInterval(w.intervalMs);
         const angles = w.angles ?? [0];
         return angles.map((a) => ({
             kind: 'bullet' as const,
@@ -123,7 +144,7 @@ export class WeaponSystem {
     private tickTracker(dtMs: number, w: WeaponLevel): ShotSpec[] {
         this.cooldown -= dtMs;
         if (this.cooldown > 0) return [];
-        this.cooldown = w.intervalMs;
+        this.cooldown = this.effectiveInterval(w.intervalMs);
         const count = w.trackerCount ?? 1;
         const lifetime = w.lifetimeMs ?? 5000;
         const specs: ShotSpec[] = [];
@@ -150,8 +171,10 @@ export class WeaponSystem {
             this.burst.bursting = true;
             this.burst.fired = 0;
         }
-        const burstInt = w.burstIntervalMs ?? 100;
-        const cycleInt = w.cycleIntervalMs ?? 300;
+        const burstInt = this.isOverdrive() ? 0 : (w.burstIntervalMs ?? 100);
+        const cycleInt = this.isOverdrive()
+            ? Math.floor((w.cycleIntervalMs ?? 300) * 0.5)
+            : (w.cycleIntervalMs ?? 300);
         const size = w.burstSize ?? 6;
         this.burst.fired += 1;
         if (this.burst.fired >= size) {
