@@ -233,13 +233,12 @@ export class PlayScene extends Phaser.Scene {
     override update(_time: number, delta: number): void {
         this.player.tickPlayer(delta);
 
-        if (WEAPONS[this.weapon.getLevel()]!.mode === 'beam') {
-            this.handleBeam(this.weapon.tickBeam(delta), delta);
-        } else {
-            this.beam.hide();
-            const specs = this.weapon.tick(delta);
-            for (const spec of specs) this.fireSpec(spec);
-        }
+        // 分层 tick：每帧同时跑普通层（primary/spread/swarm/tracker）+ 激光层
+        const specs = this.weapon.tick(delta);
+        for (const spec of specs) this.fireSpec(spec);
+
+        const beamState = this.weapon.tickBeam(delta);
+        this.handleBeam(beamState, delta);
 
         // 弹珠面板推进：Zone 命中累积 → typeKey[] 注入 director
         const marbleSpawns = this.marbleSpawner.tick(delta / 1000);
@@ -437,7 +436,7 @@ export class PlayScene extends Phaser.Scene {
                 vx: spec.vx,
                 vy: spec.vy,
                 damage: spec.damage,
-                color: 0x7df9ff
+                color: spec.color ?? 0x7df9ff
             });
         } else if (spec.kind === 'tracker') {
             const tracker = this.trackers.get() as Tracker | null;
