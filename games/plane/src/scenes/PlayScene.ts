@@ -3,7 +3,7 @@ import { PLANE_THEME, PLAY_AREA } from '../data/theme.js';
 import { Player } from '../entities/Player.js';
 import { Bullet, makeBulletPool } from '../entities/Bullet.js';
 import { Enemy, makeEnemyPool } from '../entities/Enemy.js';
-import { WeaponSystem } from '../systems/WeaponSystem.js';
+import { WeaponSystem, type ShotSpec } from '../systems/WeaponSystem.js';
 import { WaveDirector } from '../systems/WaveDirector.js';
 import { updateBehavior, type BehaviorTarget } from '../systems/EnemyBehavior.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
@@ -100,8 +100,10 @@ export class PlayScene extends Phaser.Scene {
     override update(_time: number, delta: number): void {
         this.player.tick();
 
-        const shots = this.weapon.tick(delta);
-        for (let i = 0; i < shots; i++) this.fireOnce();
+        const specs = this.weapon.tick(delta);
+        for (const spec of specs) {
+            if (spec.kind === 'bullet') this.fireSpec(spec);
+        }
 
         const reqs = this.director.tick(delta);
         for (const r of reqs) {
@@ -148,16 +150,15 @@ export class PlayScene extends Phaser.Scene {
         });
     }
 
-    private fireOnce(): void {
+    private fireSpec(spec: ShotSpec): void {
         const bullet = this.bullets.get() as Bullet | null;
         if (!bullet) return;
-        const weapon = WEAPONS[this.weapon.getLevel()]!;
         bullet.fire({
-            x: this.player.x,
-            y: this.player.y - 30,
-            vx: 0,
-            vy: -weapon.bulletSpeed,
-            damage: weapon.damage,
+            x: this.player.x + spec.ox,
+            y: this.player.y + spec.oy,
+            vx: spec.vx,
+            vy: spec.vy,
+            damage: spec.damage,
             color: 0x7df9ff
         });
         this.events.emit(E.PlayerFire, { weaponLevel: this.weapon.getLevel() });
