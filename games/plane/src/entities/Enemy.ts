@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { ENEMY_TYPES, type EnemyTypeKey } from '../data/enemyTypes.js';
+import type { EnemyWeaponState } from '../systems/EnemyWeapon.js';
 
 export interface EnemySpawnArgs {
     x: number;
@@ -19,6 +20,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     confronting = false;
     fieldTimer = 0;
     spawnTimer = 0;
+    weaponState: EnemyWeaponState = { cooldownMs: 0, burstRemaining: 0, burstNextMs: 0 };
 
     constructor(scene: Phaser.Scene, x: number, y: number) {
         super(scene, x, y, 'enemy-1');
@@ -38,6 +40,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.confronting = false;
         this.fieldTimer = 0;
         this.spawnTimer = 0;
+        this.weaponState = { cooldownMs: 0, burstRemaining: 0, burstNextMs: 0 };
 
         this.setActive(true);
         this.setVisible(true);

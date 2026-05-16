@@ -7,7 +7,15 @@ import { Tracker, makeTrackerPool } from '../entities/Tracker.js';
 import { Beam } from '../entities/Beam.js';
 import { Ally } from '../entities/Ally.js';
 import { Powerup, makePowerupPool } from '../entities/Powerup.js';
+import { EnemyBullet, makeEnemyBulletPool } from '../entities/EnemyBullet.js';
+import { Meteor, makeMeteorPool } from '../entities/Meteor.js';
 import { AllySystem } from '../systems/AllySystem.js';
+import { updateEnemyWeapon } from '../systems/EnemyWeapon.js';
+import { MeteorDirector, METEOR_DROP_RATE } from '../systems/MeteorDirector.js';
+import { FxSystem } from '../systems/FxSystem.js';
+import { ENEMY_WEAPON_MAP } from '../data/enemyWeapons.js';
+import { SFX } from '../data/sfxKeys.js';
+import { SfxBank } from '../audio/sfxBank.js';
 import {
     decideDrop,
     applyEffect,
@@ -43,6 +51,10 @@ export class PlayScene extends Phaser.Scene {
     private powerups!: Phaser.Physics.Arcade.Group;
     private powerCooldownMs = 0;
     private onscreenPowerupKeys = new Set<PowerupKey>();
+    private enemyBullets!: Phaser.Physics.Arcade.Group;
+    private meteors!: Phaser.Physics.Arcade.Group;
+    private meteorDirector!: MeteorDirector;
+    private sfx!: SfxBank;
     private director!: WaveDirector;
 
     private score = 0;
@@ -93,6 +105,15 @@ export class PlayScene extends Phaser.Scene {
         this.powerups = makePowerupPool(this, 8);
         this.powerCooldownMs = 0;
         this.onscreenPowerupKeys = new Set<PowerupKey>();
+        this.enemyBullets = makeEnemyBulletPool(this, 128);
+        this.meteors = makeMeteorPool(this, 8);
+        this.meteorDirector = new MeteorDirector({
+            minX: PLAY_AREA.x + 40,
+            maxX: PLAY_AREA.x + PLAY_AREA.w - 40,
+            randSource: Math.random
+        });
+        this.sfx = new SfxBank(this);
+        new FxSystem(this);
 
         this.director = new WaveDirector({
             minX: PLAY_AREA.x + 60,
@@ -106,7 +127,17 @@ export class PlayScene extends Phaser.Scene {
             enemies: this.enemies,
             bullets: this.bullets,
             powerups: this.powerups,
+            meteors: this.meteors,
             onPowerupPicked: (key) => this.handlePowerupPicked(key)
+        });
+
+        this.physics.add.overlap(this.player, this.enemyBullets, (_p, b) => {
+            const bullet = b as EnemyBullet;
+            if (!bullet.active) return;
+            bullet.deactivate();
+            if (!this.player.isShielded()) {
+                this.events.emit(E.PlayerHit, { damage: bullet.damage });
+            }
         });
 
         this.physics.add.overlap(this.trackers, this.enemies, (a, b) => {
@@ -171,6 +202,23 @@ export class PlayScene extends Phaser.Scene {
                 this.scene.start('result', { score: this.score, kills: this.kills });
             }
         });
+
+        this.events.on('meteor-broken', (p: { x: number; y: number }) => {
+            this.sfx.playSfx(SFX.MeteorBreak);
+            if (Math.random() < METEOR_DROP_RATE) {
+                const allKeys: PowerupKey[] = ['power', 'shield', 'ally', 'hp', 'speed'];
+                const available = allKeys.filter((k) => !this.onscreenPowerupKeys.has(k));
+                if (available.length > 0) {
+                    const idx = Math.floor(Math.random() * available.length);
+                    const key = available[idx]!;
+                    this.spawnPowerupEntity(p.x, p.y, key);
+                }
+            }
+        });
+
+        this.events.on(E.EnemyKilled, () => this.sfx.playSfx(SFX.EnemyExplode));
+        this.events.on(E.PlayerHit, () => this.sfx.playSfx(SFX.PlayerHit));
+        this.events.on(E.PlayerFire, () => this.sfx.playSfx(SFX.PlayerFire));
     }
 
     override update(_time: number, delta: number): void {
@@ -237,6 +285,30 @@ export class PlayScene extends Phaser.Scene {
                 if (e.x < PLAY_AREA.x + 20) e.sweepDir = 1;
                 else if (e.x > PLAY_AREA.x + PLAY_AREA.w - 20) e.sweepDir = -1;
             }
+            // 敌机开火（进入屏幕后才开）
+            if (e.y > PLAY_AREA.y) {
+                const wkey = ENEMY_WEAPON_MAP[e.typeKey];
+                if (wkey) {
+                    const shots = updateEnemyWeapon(
+                        e.weaponState,
+                        { ex: e.x, ey: e.y, px: this.player.x, py: this.player.y },
+                        delta,
+                        wkey
+                    );
+                    for (const s of shots) {
+                        const eb = this.enemyBullets.get() as EnemyBullet | null;
+                        if (!eb) continue;
+                        eb.fire({
+                            x: e.x + s.ox,
+                            y: e.y + s.oy,
+                            vx: s.vx,
+                            vy: s.vy,
+                            damage: s.damage,
+                            color: s.color
+                        });
+                    }
+                }
+            }
             e.recycleIfOffscreen(PLAY_AREA.y + PLAY_AREA.h);
             return null;
         });
@@ -284,6 +356,23 @@ export class PlayScene extends Phaser.Scene {
             p.floatUpdate(delta);
             p.recycleIfOffscreen(PLAY_AREA.y + PLAY_AREA.h);
             if (!p.active) this.onscreenPowerupKeys.delete(p.powerupKey);
+            return null;
+        });
+
+        // 敌机子弹回池
+        this.enemyBullets.children.iterate((b) => {
+            (b as EnemyBullet).recycleIfOffscreen(PLAY_AREA.y, PLAY_AREA.y + PLAY_AREA.h);
+            return null;
+        });
+
+        // 陨石生成 + 回池
+        const meteorReqs = this.meteorDirector.tick(delta);
+        for (const r of meteorReqs) {
+            const m = this.meteors.get() as Meteor | null;
+            if (m) m.spawn({ x: r.x, y: PLAY_AREA.y - 60 });
+        }
+        this.meteors.children.iterate((m) => {
+            (m as Meteor).recycleIfOffscreen(PLAY_AREA.y + PLAY_AREA.h);
             return null;
         });
 
