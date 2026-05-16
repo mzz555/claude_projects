@@ -3,9 +3,9 @@ import type { EnemyTypeKey } from '../data/enemyTypes.js';
 import {
     MARBLE_LAUNCHER,
     MARBLE_OBSTACLES,
-    MARBLE_ZONES
+    MARBLE_ZONES,
+    MARBLE_WORLD
 } from '../data/marbleLayout.js';
-import { MARBLE_WORLD } from '../data/theme.js';
 
 const TIER_TYPES: Record<1 | 2 | 3 | 4, EnemyTypeKey[]> = {
     1: ['scout'],

@@ -17,23 +17,37 @@ export class WaveDirector {
     private elapsedMs = 0;
     private cooldownMs = 0;
     private opts: WaveDirectorOpts;
+    private externalQueue: EnemyTypeKey[] = [];
 
     constructor(opts: WaveDirectorOpts) {
         this.opts = opts;
     }
 
-    tick(dtMs: number): SpawnRequest[] {
-        this.elapsedMs += dtMs;
-        this.cooldownMs -= dtMs;
-        if (this.cooldownMs > 0) return [];
+    enqueueExternal(typeKey: EnemyTypeKey): void {
+        this.externalQueue.push(typeKey);
+    }
 
-        const sec = this.elapsedMs / 1000;
-        this.cooldownMs = getSpawnIntervalMs(sec);
-
-        const key = pickEnemy(sec, this.opts.randSource());
-        const meta = ENEMY_TYPES[key];
+    private buildSpawnRequest(typeKey: EnemyTypeKey): SpawnRequest {
+        const meta = ENEMY_TYPES[typeKey];
         const x = this.opts.minX + this.opts.randSource() * (this.opts.maxX - this.opts.minX);
         const vy = meta.vyMin + this.opts.randSource() * (meta.vyMax - meta.vyMin);
-        return [{ typeKey: key, x, vy }];
+        return { typeKey, x, vy };
+    }
+
+    tick(dtMs: number): SpawnRequest[] {
+        const out: SpawnRequest[] = [];
+        while (this.externalQueue.length > 0) {
+            const typeKey = this.externalQueue.shift()!;
+            out.push(this.buildSpawnRequest(typeKey));
+        }
+        this.elapsedMs += dtMs;
+        this.cooldownMs -= dtMs;
+        if (this.cooldownMs <= 0) {
+            const sec = this.elapsedMs / 1000;
+            this.cooldownMs = getSpawnIntervalMs(sec);
+            const key = pickEnemy(sec, this.opts.randSource());
+            out.push(this.buildSpawnRequest(key));
+        }
+        return out;
     }
 }

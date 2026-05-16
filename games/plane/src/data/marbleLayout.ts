@@ -1,3 +1,19 @@
+/** 弹珠面板外框（含边距）。屏幕坐标，原点屏幕左上角 */
+export const MARBLE_PANEL = {
+    x: 1040,
+    y: 80,
+    w: 240,
+    h: 560
+};
+
+/** 弹珠 World 逻辑尺寸（去掉 padding） */
+export const MARBLE_WORLD = {
+    paddingX: 10,
+    paddingY: 10,
+    w: 220,
+    h: 540
+};
+
 export interface ObstacleSpec {
     x: number;
     y: number;

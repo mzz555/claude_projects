@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import type { WorldSnapshot } from '@cp/marble-sim';
-import { MARBLE_PANEL, MARBLE_WORLD, PLANE_THEME } from '../data/theme.js';
+import { PLANE_THEME } from '../data/theme.js';
 import {
     MARBLE_OBSTACLES,
     MARBLE_ZONES,
-    MARBLE_LAUNCHER
+    MARBLE_LAUNCHER,
+    MARBLE_PANEL,
+    MARBLE_WORLD
 } from '../data/marbleLayout.js';
 
 function worldX(localX: number): number {

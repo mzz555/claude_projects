@@ -1,3 +1,5 @@
+import type { EnemyTypeKey } from './data/enemyTypes.js';
+
 export const E = {
     EnemyKilled: 'enemy-killed',
     PlayerHit: 'player-hit',
@@ -17,5 +19,5 @@ export interface EventPayloads {
     [E.PowerupTaken]: { kind: string };
     [E.WeaponChanged]: { level: number };
     [E.BossEntered]: { type: string };
-    [E.MarbleSpawn]: { enemyType: string };
+    [E.MarbleSpawn]: { enemyType: EnemyTypeKey };
 }

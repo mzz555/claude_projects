@@ -20,18 +20,5 @@ export const PLAY_AREA = {
     h: 720 - HUD_HEIGHT * 2
 };
 
-/** 弹珠面板外框（含边距） */
-export const MARBLE_PANEL = {
-    x: 1040,
-    y: HUD_HEIGHT,
-    w: 240,
-    h: 720 - HUD_HEIGHT * 2
-};
-
-/** 弹珠 World 逻辑尺寸（去掉 padding） */
-export const MARBLE_WORLD = {
-    paddingX: 10,
-    paddingY: 10,
-    w: 220,
-    h: 540
-};
+// 弹珠面板尺寸常量见 ./marbleLayout.ts（MARBLE_PANEL / MARBLE_WORLD），
+// 与 marble-sim 配置同文件方便维护，且让 MarbleSpawner 不依赖 theme barrel

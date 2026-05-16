@@ -36,3 +36,21 @@ describe('WaveDirector', () => {
         expect(total).toBeLessThanOrEqual(5);
     });
 });
+
+describe('WaveDirector/enqueueExternal', () => {
+    it('外部注入立即返回该类型', () => {
+        const d = new WaveDirector({ minX: 100, maxX: 900, randSource: fixedRand });
+        d.enqueueExternal('elite');
+        const reqs = d.tick(16);
+        const typeKeys = reqs.map((r) => r.typeKey);
+        expect(typeKeys).toContain('elite');
+    });
+
+    it('外部注入与时间触发可同帧并存', () => {
+        const d = new WaveDirector({ minX: 100, maxX: 900, randSource: fixedRand });
+        d.enqueueExternal('carrier');
+        const reqs = d.tick(2000);
+        expect(reqs.length).toBeGreaterThanOrEqual(2);
+        expect(reqs.some((r) => r.typeKey === 'carrier')).toBe(true);
+    });
+});
