@@ -11,7 +11,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     maxHp = 100;
     private shieldRemainingMs = 0;
     private speedBoostRemainingMs = 0;
-    private jetFlame: Phaser.GameObjects.Sprite | null = null;
+    private jetFlames: Phaser.GameObjects.Sprite[] = [];
     private jetPulseT = 0;
 
     constructor(scene: Phaser.Scene, x: number, y: number, kbSource: InputSource) {
@@ -23,11 +23,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         (this.body as Phaser.Physics.Arcade.Body).setSize(40, 40, true);
 
         if (scene.textures.exists('jet-flame')) {
-            this.jetFlame = scene.add.sprite(x, y + 28, 'jet-flame');
-            // 锚点：顶部中央 → 喷口贴飞机底部，火焰沿 +y 向下延伸
-            this.jetFlame.setOrigin(0.5, 0);
-            this.jetFlame.setBlendMode(Phaser.BlendModes.ADD);
-            this.jetFlame.setDepth(this.depth - 1);
+            // 左右两个推进器（与原版 [-11, 11] 偏移一致）
+            for (const ox of [-11, 11]) {
+                const flame = scene.add.sprite(x + ox, y + 22, 'jet-flame');
+                flame.setOrigin(0.5, 0);
+                flame.setBlendMode(Phaser.BlendModes.ADD);
+                flame.setDepth(this.depth - 1);
+                this.jetFlames.push(flame);
+            }
         }
 
         this.inputMap = new InputMap<PlayerAction>(kbSource);
@@ -56,15 +59,22 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         const k = len > 0 ? speed / len : 0;
         this.setVelocity(vx * k, vy * k);
 
-        if (this.jetFlame) {
+        if (this.jetFlames.length > 0) {
             this.jetPulseT += dtMs / 1000;
-            this.jetFlame.setPosition(this.x, this.y + 28);
             // 脉冲：宽度 12% 震荡，长度按加速 buff 拉长 1.5×；alpha 微跳
             const pulse = 1 + Math.sin(this.jetPulseT * 18) * 0.12;
             const lengthMul = this.speedBoostRemainingMs > 0 ? 1.5 : 1;
-            // 贴图原始 887×1774，目标视觉约 28×80：宽 28/887≈0.032，高 80/1774≈0.045
-            this.jetFlame.setScale(0.032 * pulse, 0.045 * lengthMul);
-            this.jetFlame.setAlpha(0.85 + Math.sin(this.jetPulseT * 22) * 0.1);
+            // 贴图原始 887×1774，目标视觉约 14×40：宽 14/887≈0.016，高 40/1774≈0.023
+            const sx = 0.016 * pulse;
+            const sy = 0.023 * lengthMul;
+            const a = 0.85 + Math.sin(this.jetPulseT * 22) * 0.1;
+            const offsets = [-11, 11];
+            for (let i = 0; i < this.jetFlames.length; i++) {
+                const f = this.jetFlames[i]!;
+                f.setPosition(this.x + offsets[i]!, this.y + 22);
+                f.setScale(sx, sy);
+                f.setAlpha(a);
+            }
         }
     }
 
