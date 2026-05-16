@@ -25,8 +25,11 @@ export class CollisionSystem {
             const bullet = a as Bullet;
             const enemy = b as Enemy;
             if (!bullet.active || !enemy.active) return;
+            const hitX = bullet.x;
+            const hitY = bullet.y;
             const killed = enemy.takeDamage(bullet.damage);
             bullet.deactivate();
+            scene.events.emit(E.EnemyHit, { x: hitX, y: hitY });
             if (killed) {
                 scene.events.emit(E.EnemyKilled, {
                     enemyType: enemy.typeKey,
