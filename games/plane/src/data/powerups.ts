@@ -49,3 +49,25 @@ export const TIER_DROP_RATE: Record<1 | 2 | 3 | 4, number> = {
 
 export const MAX_ONSCREEN = 3;
 export const POWER_COOLDOWN_MS = 5000;
+
+export type FirepowerShape = 'diamond' | 'circle' | 'star' | 'pentagon' | 'hex' | 'burst';
+
+export interface FirepowerVisual {
+    color: number;
+    icon: string;
+    shape: FirepowerShape;
+}
+
+/**
+ * 索引 = 升级后等级（1..6）。索引 0 与 1 同（占位，便于 clamp）。
+ * 颜色梯度参考原版 v9.0：副炮绿 → 蜂群黄 → 导弹橙 → 双弹红 → 激光紫 → 超频青
+ */
+export const FP_DATA: ReadonlyArray<FirepowerVisual> = [
+    { color: 0x00ff44, icon: '⊕', shape: 'diamond' },
+    { color: 0x00ff44, icon: '⊕', shape: 'diamond' },
+    { color: 0xffee00, icon: '≋', shape: 'circle' },
+    { color: 0xff8800, icon: '◎', shape: 'star' },
+    { color: 0xff2200, icon: '⦿', shape: 'pentagon' },
+    { color: 0xcc00ff, icon: '⬡', shape: 'hex' },
+    { color: 0x00ffff, icon: '✦', shape: 'burst' }
+];

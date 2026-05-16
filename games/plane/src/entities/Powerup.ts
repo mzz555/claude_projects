@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
-import { POWERUPS, type PowerupKey } from '../data/powerups.js';
+import { POWERUPS, FP_DATA, type PowerupKey } from '../data/powerups.js';
 
 export interface PowerupSpawnArgs {
     x: number;
     y: number;
     key: PowerupKey;
+    /** 仅当 key='power' 时使用：升级后将达到的等级（1..6），决定贴图颜色 */
+    nextLevel?: number;
 }
 
 export class Powerup extends Phaser.Physics.Arcade.Image {
@@ -18,12 +20,17 @@ export class Powerup extends Phaser.Physics.Arcade.Image {
     }
 
     spawn(args: PowerupSpawnArgs): void {
-        const p = POWERUPS[args.key];
         this.powerupKey = args.key;
         this.setActive(true);
         this.setVisible(true);
         this.body!.enable = true;
-        this.setTint(Phaser.Display.Color.HexStringToColor(p.color).color);
+        if (args.key === 'power' && args.nextLevel != null) {
+            const idx = Math.max(1, Math.min(6, args.nextLevel));
+            this.setTint(FP_DATA[idx]!.color);
+        } else {
+            const p = POWERUPS[args.key];
+            this.setTint(Phaser.Display.Color.HexStringToColor(p.color).color);
+        }
         this.setDisplaySize(28, 28);
         this.setPosition(args.x, args.y);
         this.setVelocity(0, 80);

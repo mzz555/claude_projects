@@ -519,7 +519,12 @@ export class PlayScene extends Phaser.Scene {
     private spawnPowerupEntity(x: number, y: number, key: PowerupKey): void {
         const p = this.powerups.get() as Powerup | null;
         if (!p) return;
-        p.spawn({ x, y, key });
+        const args: { x: number; y: number; key: PowerupKey; nextLevel?: number } = { x, y, key };
+        if (key === 'power') {
+            const lvl = this.weapon.getLevel();
+            args.nextLevel = lvl >= MAX_LEVEL ? 6 : lvl + 1;
+        }
+        p.spawn(args);
         this.onscreenPowerupKeys.add(key);
         if (key === 'power') {
             this.powerCooldownMs = POWER_COOLDOWN_MS;
