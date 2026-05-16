@@ -2,6 +2,9 @@ import Phaser from 'phaser';
 import { ENEMY_TYPES, type EnemyTypeKey } from '../data/enemyTypes.js';
 import type { EnemyWeaponState } from '../systems/EnemyWeapon.js';
 
+/** 敌机贴图缩放：原 enemyTypes.ts 数据是原版 v9.0 px 尺寸（23~84），新版 1280×720 画布下显得偏小，×4 放大 */
+const ENEMY_DISPLAY_SCALE = 4;
+
 export interface EnemySpawnArgs {
     x: number;
     y: number;
@@ -46,9 +49,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.setVisible(true);
         this.body!.enable = true;
         this.setTexture(t.sprite);
-        this.setDisplaySize(t.w, t.h);
+        const dw = t.w * ENEMY_DISPLAY_SCALE;
+        const dh = t.h * ENEMY_DISPLAY_SCALE;
+        this.setDisplaySize(dw, dh);
         const body = this.body as Phaser.Physics.Arcade.Body;
-        body.setSize(t.w * 0.8, t.h * 0.8, true);
+        body.setSize(dw * 0.8, dh * 0.8, true);
         this.setPosition(args.x, args.y);
         this.setVelocity(0, args.vy);
     }
