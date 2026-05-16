@@ -1,5 +1,15 @@
 import { WEAPONS, type WeaponLevel } from '../data/weapons.js';
 
+export interface BeamState {
+    state: 'charging' | 'firing';
+    /** 0..1，当前阶段进度 */
+    tNormalized: number;
+    /** firing 时的实时宽度（px） */
+    width: number;
+    /** firing 时的实时每秒伤害 */
+    damagePerSec: number;
+}
+
 export interface ShotSpec {
     kind: 'bullet' | 'tracker' | 'beam';
     ox: number;
@@ -21,11 +31,42 @@ export class WeaponSystem {
     private level = 0;
     private cooldown = 0;
     private burst: BurstState = { bursting: false, fired: 0, nextMs: 0 };
+    private beamElapsed = 0;
 
     setLevel(level: number): void {
         this.level = Math.max(0, Math.min(WEAPONS.length - 1, level));
         this.cooldown = 0;
         this.burst = { bursting: false, fired: 0, nextMs: 0 };
+        this.beamElapsed = 0;
+    }
+
+    tickBeam(dtMs: number): BeamState | null {
+        const w = WEAPONS[this.level]!;
+        if (w.mode !== 'beam') return null;
+        const charge = w.chargeMs ?? 1000;
+        const fire = w.fireMs ?? 4000;
+        const cycle = charge + fire;
+        this.beamElapsed = (this.beamElapsed + dtMs) % cycle;
+        if (this.beamElapsed < charge) {
+            return {
+                state: 'charging',
+                tNormalized: this.beamElapsed / charge,
+                width: 0,
+                damagePerSec: 0
+            };
+        }
+        const tFire = this.beamElapsed - charge;
+        const t = tFire / fire;
+        const ws = w.widthStart ?? 6;
+        const we = w.widthEnd ?? 17;
+        const ds = w.damageStartPerSec ?? 12;
+        const de = w.damageEndPerSec ?? 90;
+        return {
+            state: 'firing',
+            tNormalized: t,
+            width: ws + (we - ws) * t,
+            damagePerSec: ds + (de - ds) * t
+        };
     }
 
     getLevel(): number {

@@ -4,7 +4,9 @@ import { Player } from '../entities/Player.js';
 import { Bullet, makeBulletPool } from '../entities/Bullet.js';
 import { Enemy, makeEnemyPool } from '../entities/Enemy.js';
 import { Tracker, makeTrackerPool } from '../entities/Tracker.js';
-import { WeaponSystem, type ShotSpec } from '../systems/WeaponSystem.js';
+import { Beam } from '../entities/Beam.js';
+import { WeaponSystem, type BeamState, type ShotSpec } from '../systems/WeaponSystem.js';
+import { WEAPONS } from '../data/weapons.js';
 import { WaveDirector } from '../systems/WaveDirector.js';
 import { updateBehavior, type BehaviorTarget } from '../systems/EnemyBehavior.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
@@ -16,6 +18,8 @@ export class PlayScene extends Phaser.Scene {
     private trackers!: Phaser.Physics.Arcade.Group;
     private enemies!: Phaser.Physics.Arcade.Group;
     private weapon = new WeaponSystem();
+    private beam!: Beam;
+    private beamDamageBucket = 0;
     private director!: WaveDirector;
 
     private score = 0;
@@ -58,6 +62,8 @@ export class PlayScene extends Phaser.Scene {
         this.bullets = makeBulletPool(this, 256);
         this.trackers = makeTrackerPool(this, 32);
         this.enemies = makeEnemyPool(this, 64);
+        this.beam = new Beam(this);
+        this.beamDamageBucket = 0;
 
         this.director = new WaveDirector({
             minX: PLAY_AREA.x + 60,
@@ -118,8 +124,13 @@ export class PlayScene extends Phaser.Scene {
     override update(_time: number, delta: number): void {
         this.player.tick();
 
-        const specs = this.weapon.tick(delta);
-        for (const spec of specs) this.fireSpec(spec);
+        if (WEAPONS[this.weapon.getLevel()]!.mode === 'beam') {
+            this.handleBeam(this.weapon.tickBeam(delta), delta);
+        } else {
+            this.beam.hide();
+            const specs = this.weapon.tick(delta);
+            for (const spec of specs) this.fireSpec(spec);
+        }
 
         const reqs = this.director.tick(delta);
         for (const r of reqs) {
@@ -200,6 +211,37 @@ export class PlayScene extends Phaser.Scene {
             });
         }
         this.events.emit(E.PlayerFire, { weaponLevel: this.weapon.getLevel() });
+    }
+
+    private handleBeam(bs: BeamState | null, deltaMs: number): void {
+        if (!bs || bs.state !== 'firing') {
+            this.beam.hide();
+            return;
+        }
+        this.beam.show(this.player.x, this.player.y, bs.width);
+        this.beamDamageBucket += (bs.damagePerSec * deltaMs) / 1000;
+        if (this.beamDamageBucket >= 1) {
+            const dmg = Math.floor(this.beamDamageBucket);
+            this.beamDamageBucket -= dmg;
+            const halfW = bs.width / 2;
+            const beamX = this.player.x;
+            this.enemies.children.iterate((obj) => {
+                const e = obj as Enemy;
+                if (!e.active) return null;
+                if (e.x >= beamX - halfW && e.x <= beamX + halfW && e.y <= this.player.y) {
+                    const killed = e.takeDamage(dmg);
+                    if (killed) {
+                        this.events.emit(E.EnemyKilled, {
+                            enemyType: e.typeKey,
+                            score: e.score,
+                            x: e.x,
+                            y: e.y
+                        });
+                    }
+                }
+                return null;
+            });
+        }
     }
 
     private pickNearestEnemy(
