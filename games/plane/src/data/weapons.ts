@@ -36,6 +36,8 @@ export const SWARM = {
     overdriveSwarmRateMs: 17,
     bulletSpeed: 720,
     damage: 0.1,
+    oy: -8,
+    color: 0xffee00,
     /** 6 发偏移与速度倍率（vy 倍率 0.92~1.0 之间，vx ±0.6） */
     pellets: [
         { ox: -20, vxFactor: -0.6, vyFactor: -0.92 },

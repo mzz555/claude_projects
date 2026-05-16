@@ -69,13 +69,17 @@ export class WeaponSystem {
     }
 
     tick(dtMs: number): ShotSpec[] {
+        // 拆 dtMs：超频内时间 + 超频外时间。这样 swarm 的 normal cycle 只在 normal 段累加，
+        // 避免巨步 tick（如 dtMs 远大于 overdriveRemainingMs）把 cycle 推进到不可预测的相位。
+        const overdrivePortion = Math.min(this.overdriveRemainingMs, dtMs);
+        const normalPortion = dtMs - overdrivePortion;
         if (this.overdriveRemainingMs > 0) {
             this.overdriveRemainingMs = Math.max(0, this.overdriveRemainingMs - dtMs);
         }
         const spec = WEAPONS[this.level]!;
         const shots: ShotSpec[] = [];
         this.tickPrimary(spec, dtMs, shots);
-        this.tickSwarm(spec, dtMs, shots);
+        this.tickSwarm(spec, overdrivePortion, normalPortion, shots);
         return shots;
     }
 
@@ -118,24 +122,35 @@ export class WeaponSystem {
      *
      * 非超频：300ms 周期 = 前 100ms burst 窗口（每 33ms 发 6 颗）+ 后 200ms 静默。
      * 超频：绕过 cycle 闸门，按 17ms 持续发射 6 颗（无静默期）。
+     *
+     * dtMs 由 tick() 拆为 overdrivePortion + normalPortion，分别走两条路径，
+     * 保证「超频结束后从 normal cycle 起点重新计时」的语义在巨步 dtMs 下也成立。
      */
-    private tickSwarm(spec: WeaponLevelSpec, dtMs: number, out: ShotSpec[]): void {
+    private tickSwarm(spec: WeaponLevelSpec, overdriveDtMs: number, normalDtMs: number, out: ShotSpec[]): void {
         if (!spec.layers.swarm) return;
-        if (this.isOverdrive()) {
-            // 超频：忽略 cycle 闸门，按 overdriveSwarmRateMs 持续
-            this.swarmCooldown -= dtMs;
-            if (this.swarmCooldown > 0) return;
-            this.swarmCooldown = SWARM.overdriveSwarmRateMs;
-            this.emitSwarmPellets(out);
-            return;
+        if (overdriveDtMs > 0) {
+            // 超频段：忽略 cycle 闸门，按 overdriveSwarmRateMs 持续
+            this.swarmCooldown -= overdriveDtMs;
+            if (this.swarmCooldown <= 0) {
+                this.swarmCooldown = SWARM.overdriveSwarmRateMs;
+                this.emitSwarmPellets(out);
+            }
+            // 超频期间冻结 cycle 时钟；超频结束后下一帧从 0 开始新 cycle（避免 stale 状态导致 burst/silent 阶段不可预测）
+            this.swarmCycleElapsed = 0;
+            // 跨越超频→normal 边界的本帧：只走 overdrive 段，normal 段顺延到下一帧从干净状态开始
+            if (this.overdriveRemainingMs === 0 && normalDtMs > 0) {
+                this.swarmCooldown = 0;
+                return;
+            }
         }
-        this.swarmCycleElapsed = (this.swarmCycleElapsed + dtMs) % SWARM.cycleIntervalMs;
+        if (normalDtMs <= 0) return;
+        this.swarmCycleElapsed = (this.swarmCycleElapsed + normalDtMs) % SWARM.cycleIntervalMs;
         const inBurst = this.swarmCycleElapsed < SWARM.burstDurMs;
         if (!inBurst) {
             this.swarmCooldown = 0;
             return;
         }
-        this.swarmCooldown -= dtMs;
+        this.swarmCooldown -= normalDtMs;
         if (this.swarmCooldown > 0) return;
         this.swarmCooldown = SWARM.swarmRateMs;
         this.emitSwarmPellets(out);
@@ -148,11 +163,11 @@ export class WeaponSystem {
                 layer: 'swarm',
                 kind: 'bullet',
                 ox: p.ox,
-                oy: -8,
+                oy: SWARM.oy,
                 vx: p.vxFactor * SWARM.bulletSpeed,
                 vy: p.vyFactor * SWARM.bulletSpeed,
                 damage: SWARM.damage,
-                color: 0xffee00
+                color: SWARM.color
             });
         }
     }

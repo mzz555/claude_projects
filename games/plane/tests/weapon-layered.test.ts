@@ -141,4 +141,29 @@ describe('WeaponSystem swarm layer', () => {
             expect(s.damage).toBe(SWARM.damage);
         }
     });
+
+    it('swarm restarts burst after full cycle (cycle boundary reentry)', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(2);
+        // 首个 burst 用尽
+        ws.tick(SWARM.burstDurMs);
+        // silent 区间走完，进入下一个 cycle 起点
+        ws.tick(SWARM.cycleIntervalMs - SWARM.burstDurMs);
+        // 下一个 burst 起点：刚跨过 cycle 边界，应立即可发
+        const shots = ws.tick(SWARM.swarmRateMs);
+        expect(shots.filter((s) => s.layer === 'swarm')).toHaveLength(SWARM.pellets.length);
+    });
+
+    it('swarm transitions cleanly from overdrive back to normal cycle', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(2);
+        ws.enterOverdrive();
+        // overdrive 期间几次发射
+        ws.tick(SWARM.overdriveSwarmRateMs * 5);
+        // 直接推进 overdrive 全程（10s）让它结束
+        ws.tick(10000);
+        // 现在应回到 normal cycle：第一个 burst 一发应立即可发
+        const shots = ws.tick(SWARM.swarmRateMs);
+        expect(shots.filter((s) => s.layer === 'swarm')).toHaveLength(SWARM.pellets.length);
+    });
 });
