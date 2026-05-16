@@ -93,26 +93,18 @@ export class WeaponSystem {
         // 副炮层与主炮共享同一次 cooldown 触发：原版行为为 if(cd<=0){...; bullets.push(主炮); if(fireLevel>=1){副炮}}
         // 故此处不维护独立 spreadCooldown，由主炮的 cooldown 决定何时联动喷出两道斜向弹
         if (spec.layers.spread) {
-            out.push({
-                layer: 'spread',
-                kind: 'bullet',
-                ox: -SPREAD.offsetX,
-                oy: -10,
-                vx: 0,
-                vy: SPREAD.vy,
-                damage: SPREAD.damage,
-                color: SPREAD.color
-            });
-            out.push({
-                layer: 'spread',
-                kind: 'bullet',
-                ox: SPREAD.offsetX,
-                oy: -10,
-                vx: 0,
-                vy: SPREAD.vy,
-                damage: SPREAD.damage,
-                color: SPREAD.color
-            });
+            for (const side of [-1, 1] as const) {
+                out.push({
+                    layer: 'spread',
+                    kind: 'bullet',
+                    ox: side * SPREAD.offsetX,
+                    oy: SPREAD.oy,
+                    vx: 0,
+                    vy: SPREAD.vy,
+                    damage: SPREAD.damage,
+                    color: SPREAD.color
+                });
+            }
         }
     }
 }

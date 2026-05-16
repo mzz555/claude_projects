@@ -22,6 +22,7 @@ export const PRIMARY = {
 /** 副炮层参数（左右各一发斜向） */
 export const SPREAD = {
     offsetX: 20,
+    oy: -10,
     vy: -660,
     damage: 1,
     color: 0x00ff44

@@ -67,5 +67,21 @@ describe('WeaponSystem spread layer', () => {
         expect(left.vy).toBe(SPREAD.vy);
         expect(right.vy).toBe(SPREAD.vy);
         expect(left.color).toBe(SPREAD.color);
+        expect(right.color).toBe(SPREAD.color);
+    });
+
+    it('Lv2+ still fires spread (regression: spread enabled at all Lv1+)', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(2);
+        const shots = ws.tick(PRIMARY.intervalMs);
+        expect(shots.filter((s) => s.layer === 'spread')).toHaveLength(2);
+    });
+
+    it('overdrive does not break spread (Lv1 still fires 2 spread per tick)', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(1);
+        ws.enterOverdrive();
+        const shots = ws.tick(PRIMARY.overdriveIntervalMs);
+        expect(shots.filter((s) => s.layer === 'spread')).toHaveLength(2);
     });
 });
