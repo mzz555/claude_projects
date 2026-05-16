@@ -49,11 +49,16 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.setVisible(true);
         this.body!.enable = true;
         this.setTexture(t.sprite);
-        const dw = t.w * ENEMY_DISPLAY_SCALE;
-        const dh = t.h * ENEMY_DISPLAY_SCALE;
-        this.setDisplaySize(dw, dh);
+        // 按贴图原始 aspect ratio 缩放：以 t.w*SCALE 作为目标显示宽度，高度跟随贴图自然比例
+        // （ENEMY_TYPES 里的 w/h 是原版 v9.0 卡通飞机比例，与新美术高清贴图比例不一致，
+        //  直接 setDisplaySize(dw, dh) 会强行拉伸贴图，并造成命中框与视觉机体形状对不上）
+        const targetW = t.w * ENEMY_DISPLAY_SCALE;
+        const srcAspect =
+            this.width > 0 && this.height > 0 ? this.height / this.width : t.h / t.w;
+        const targetH = targetW * srcAspect;
+        this.setDisplaySize(targetW, targetH);
         const body = this.body as Phaser.Physics.Arcade.Body;
-        body.setSize(dw * 0.8, dh * 0.8, true);
+        body.setSize(targetW * 0.8, targetH * 0.8, true);
         this.setPosition(args.x, args.y);
         this.setVelocity(0, args.vy);
     }
