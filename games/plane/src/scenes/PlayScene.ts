@@ -122,7 +122,7 @@ export class PlayScene extends Phaser.Scene {
     }
 
     override update(_time: number, delta: number): void {
-        this.player.tick();
+        this.player.tickPlayer(delta);
 
         if (WEAPONS[this.weapon.getLevel()]!.mode === 'beam') {
             this.handleBeam(this.weapon.tickBeam(delta), delta);
