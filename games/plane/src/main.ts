@@ -8,7 +8,7 @@ import { ResultScene } from './scenes/ResultScene.js';
 const boot = new BootScene({ manifest: planeManifest, next: 'title' });
 const title = new TitleScene({
     title: '雷霆战机',
-    subtitle: 'Phaser 重写版 · M4b',
+    subtitle: 'Phaser 重写版 · M4c',
     theme: PLANE_THEME,
     onStart: () => game.scene.start('play')
 });

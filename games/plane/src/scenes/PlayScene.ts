@@ -6,9 +6,17 @@ import { Enemy, makeEnemyPool } from '../entities/Enemy.js';
 import { Tracker, makeTrackerPool } from '../entities/Tracker.js';
 import { Beam } from '../entities/Beam.js';
 import { Ally } from '../entities/Ally.js';
+import { Powerup, makePowerupPool } from '../entities/Powerup.js';
 import { AllySystem } from '../systems/AllySystem.js';
+import {
+    decideDrop,
+    applyEffect,
+    POWER_COOLDOWN_MS
+} from '../systems/PowerupSystem.js';
 import { WeaponSystem, type BeamState, type ShotSpec } from '../systems/WeaponSystem.js';
 import { WEAPONS } from '../data/weapons.js';
+import { ENEMY_TYPES, type EnemyTypeKey } from '../data/enemyTypes.js';
+import type { PowerupKey } from '../data/powerups.js';
 import { WaveDirector } from '../systems/WaveDirector.js';
 import {
     updateBehavior,
@@ -32,6 +40,9 @@ export class PlayScene extends Phaser.Scene {
     private allyRight!: Ally;
     private allySystem = new AllySystem();
     private alliesHud!: Phaser.GameObjects.Text;
+    private powerups!: Phaser.Physics.Arcade.Group;
+    private powerCooldownMs = 0;
+    private onscreenPowerupKeys = new Set<PowerupKey>();
     private director!: WaveDirector;
 
     private score = 0;
@@ -79,6 +90,9 @@ export class PlayScene extends Phaser.Scene {
         this.allyLeft = new Ally(this, this.player.x - 60, this.player.y);
         this.allyRight = new Ally(this, this.player.x + 60, this.player.y);
         this.allySystem = new AllySystem();
+        this.powerups = makePowerupPool(this, 8);
+        this.powerCooldownMs = 0;
+        this.onscreenPowerupKeys = new Set<PowerupKey>();
 
         this.director = new WaveDirector({
             minX: PLAY_AREA.x + 60,
@@ -90,7 +104,9 @@ export class PlayScene extends Phaser.Scene {
             scene: this,
             player: this.player,
             enemies: this.enemies,
-            bullets: this.bullets
+            bullets: this.bullets,
+            powerups: this.powerups,
+            onPowerupPicked: (key) => this.handlePowerupPicked(key)
         });
 
         this.physics.add.overlap(this.trackers, this.enemies, (a, b) => {
@@ -126,11 +142,27 @@ export class PlayScene extends Phaser.Scene {
         });
         this.refreshHud();
 
-        this.events.on(E.EnemyKilled, (p: { score: number }) => {
-            this.score += p.score;
-            this.kills += 1;
-            this.refreshHud();
-        });
+        this.events.on(
+            E.EnemyKilled,
+            (p: { score: number; x: number; y: number; enemyType: string }) => {
+                this.score += p.score;
+                this.kills += 1;
+                this.refreshHud();
+
+                const meta = ENEMY_TYPES[p.enemyType as EnemyTypeKey];
+                if (meta) {
+                    const dropKey = decideDrop(
+                        meta.tier,
+                        this.onscreenPowerupKeys,
+                        this.powerCooldownMs,
+                        Math.random
+                    );
+                    if (dropKey) {
+                        this.spawnPowerupEntity(p.x, p.y, dropKey);
+                    }
+                }
+            }
+        );
 
         this.events.on(E.PlayerHit, (p: { damage: number }) => {
             this.player.hp = Math.max(0, this.player.hp - p.damage);
@@ -239,6 +271,21 @@ export class PlayScene extends Phaser.Scene {
         const fireR = this.allyRight.tickAlly(delta, this.player.x, this.player.y, 60);
         if (fireL) this.fireAllyBullet(this.allyLeft.x);
         if (fireR) this.fireAllyBullet(this.allyRight.x);
+
+        // power 冷却推进
+        if (this.powerCooldownMs > 0) {
+            this.powerCooldownMs = Math.max(0, this.powerCooldownMs - delta);
+        }
+
+        // 道具漂浮 + 回池
+        this.powerups.children.iterate((obj) => {
+            const p = obj as Powerup;
+            if (!p.active) return null;
+            p.floatUpdate(delta);
+            p.recycleIfOffscreen(PLAY_AREA.y + PLAY_AREA.h);
+            if (!p.active) this.onscreenPowerupKeys.delete(p.powerupKey);
+            return null;
+        });
 
         // bomber 电场寿命与清理
         this.fields = this.fields.filter((f) => {
@@ -351,6 +398,36 @@ export class PlayScene extends Phaser.Scene {
         return { x: (best as Enemy).x, y: (best as Enemy).y, active: true };
     }
 
+    private spawnPowerupEntity(x: number, y: number, key: PowerupKey): void {
+        const p = this.powerups.get() as Powerup | null;
+        if (!p) return;
+        p.spawn({ x, y, key });
+        this.onscreenPowerupKeys.add(key);
+        if (key === 'power') {
+            this.powerCooldownMs = POWER_COOLDOWN_MS;
+        }
+    }
+
+    private handlePowerupPicked(key: PowerupKey): void {
+        this.onscreenPowerupKeys.delete(key);
+        applyEffect(key, {
+            weapon: {
+                getLevel: () => this.weapon.getLevel(),
+                setLevel: (lvl) => this.weapon.setLevel(lvl),
+                enterOverdrive: () => this.weapon.enterOverdrive(),
+                maxLevel: WEAPONS.length - 1
+            },
+            player: {
+                activateShield: (ms) => this.player.activateShield(ms),
+                heal: (n) => this.player.heal(n),
+                activateSpeedBoost: (ms) => this.player.activateSpeedBoost(ms)
+            },
+            addAllyCharge: () => this.allySystem.addCharge()
+        });
+        this.events.emit(E.PowerupTaken, { kind: key });
+        this.refreshHud();
+    }
+
     private fireAllyBullet(x: number): void {
         const bullet = this.bullets.get() as Bullet | null;
         if (!bullet) return;
@@ -365,8 +442,14 @@ export class PlayScene extends Phaser.Scene {
     }
 
     private refreshHud(): void {
-        this.scoreText.setText(`分数 ${this.score}    击杀 ${this.kills}`);
-        this.hpText.setText(`HP ${this.player.hp} / ${this.player.maxHp}`);
+        const lvl = this.weapon.getLevel();
+        const name = WEAPONS[lvl]?.name ?? '?';
+        const overdrive = this.weapon.isOverdrive() ? ' [超频]' : '';
+        const shield = this.player.isShielded() ? '  [护盾]' : '';
+        this.scoreText.setText(
+            `分数 ${this.score}    击杀 ${this.kills}    武器 Lv${lvl} ${name}${overdrive}`
+        );
+        this.hpText.setText(`HP ${this.player.hp} / ${this.player.maxHp}${shield}`);
         this.alliesHud.setText(`支援 ${this.allySystem.getCharges()}`);
     }
 }

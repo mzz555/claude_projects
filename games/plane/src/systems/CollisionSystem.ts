@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { Bullet } from '../entities/Bullet.js';
 import { Enemy } from '../entities/Enemy.js';
 import { Player } from '../entities/Player.js';
+import { Powerup } from '../entities/Powerup.js';
+import type { PowerupKey } from '../data/powerups.js';
 import { E } from '../events.js';
 
 export interface CollisionSystemOpts {
@@ -9,11 +11,13 @@ export interface CollisionSystemOpts {
     player: Player;
     enemies: Phaser.Physics.Arcade.Group;
     bullets: Phaser.Physics.Arcade.Group;
+    powerups: Phaser.Physics.Arcade.Group;
+    onPowerupPicked: (key: PowerupKey) => void;
 }
 
 export class CollisionSystem {
     constructor(opts: CollisionSystemOpts) {
-        const { scene, player, enemies, bullets } = opts;
+        const { scene, player, enemies, bullets, powerups } = opts;
 
         scene.physics.add.overlap(bullets, enemies, (a, b) => {
             const bullet = a as Bullet;
@@ -34,8 +38,17 @@ export class CollisionSystem {
         scene.physics.add.overlap(player, enemies, (_p, b) => {
             const enemy = b as Enemy;
             if (!enemy.active) return;
-            scene.events.emit(E.PlayerHit, { damage: enemy.dmg });
+            if (!player.isShielded()) {
+                scene.events.emit(E.PlayerHit, { damage: enemy.dmg });
+            }
             enemy.deactivate();
+        });
+
+        scene.physics.add.overlap(player, powerups, (_p, pwr) => {
+            const p = pwr as Powerup;
+            if (!p.active) return;
+            opts.onPowerupPicked(p.powerupKey);
+            p.deactivate();
         });
     }
 }
