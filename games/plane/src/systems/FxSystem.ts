@@ -54,7 +54,7 @@ export class FxSystem {
         if (!this.scene.textures.exists('hit-spark')) return;
         const spark = this.scene.add.sprite(p.x, p.y, 'hit-spark', 0);
         spark.setBlendMode(Phaser.BlendModes.ADD);
-        spark.setDisplaySize(80, 80);
+        spark.setDisplaySize(40, 28); // 按帧 260×180 原始比例缩到 40×28
         spark.play(HIT_SPARK_ANIM);
         spark.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => spark.destroy());
     }
