@@ -13,6 +13,8 @@ import { AllySystem } from '../systems/AllySystem.js';
 import { updateEnemyWeapon } from '../systems/EnemyWeapon.js';
 import { MeteorDirector, METEOR_DROP_RATE } from '../systems/MeteorDirector.js';
 import { FxSystem } from '../systems/FxSystem.js';
+import { MarbleSpawner } from '../systems/MarbleSpawner.js';
+import { MarblePanel } from '../entities/MarblePanel.js';
 import { ENEMY_WEAPON_MAP } from '../data/enemyWeapons.js';
 import { SFX } from '../data/sfxKeys.js';
 import { SfxBank } from '../audio/sfxBank.js';
@@ -55,6 +57,8 @@ export class PlayScene extends Phaser.Scene {
     private meteors!: Phaser.Physics.Arcade.Group;
     private meteorDirector!: MeteorDirector;
     private sfx!: SfxBank;
+    private marbleSpawner!: MarbleSpawner;
+    private marblePanel!: MarblePanel;
     private director!: WaveDirector;
 
     private score = 0;
@@ -114,6 +118,8 @@ export class PlayScene extends Phaser.Scene {
         });
         this.sfx = new SfxBank(this);
         new FxSystem(this);
+        this.marbleSpawner = new MarbleSpawner();
+        this.marblePanel = new MarblePanel(this);
 
         this.director = new WaveDirector({
             minX: PLAY_AREA.x + 60,
@@ -230,6 +236,13 @@ export class PlayScene extends Phaser.Scene {
             this.beam.hide();
             const specs = this.weapon.tick(delta);
             for (const spec of specs) this.fireSpec(spec);
+        }
+
+        // 弹珠面板推进：Zone 命中累积 → typeKey[] 注入 director
+        const marbleSpawns = this.marbleSpawner.tick(delta / 1000);
+        for (const tk of marbleSpawns) {
+            this.director.enqueueExternal(tk);
+            this.events.emit(E.MarbleSpawn, { enemyType: tk });
         }
 
         const reqs = this.director.tick(delta);
@@ -386,6 +399,9 @@ export class PlayScene extends Phaser.Scene {
             f.setData('lifetimeMs', left);
             return true;
         });
+
+        // 弹珠面板渲染
+        this.marblePanel.draw(this.marbleSpawner.snapshot());
     }
 
     private spawnBomberField(x: number, y: number): void {
