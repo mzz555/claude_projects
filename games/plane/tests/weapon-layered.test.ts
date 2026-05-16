@@ -28,4 +28,12 @@ describe('WeaponSystem primary layer', () => {
         const shots = ws.tick(PRIMARY.overdriveIntervalMs);
         expect(shots.filter((s) => s.layer === 'primary')).toHaveLength(1);
     });
+
+    it('cooldown boundary: after first shot, intervalMs-1 does not fire, intervalMs does fire', () => {
+        const ws = new WeaponSystem();
+        ws.setLevel(0);
+        ws.tick(PRIMARY.intervalMs); // 消耗首帧 cooldown=0 的立即触发，下一发需要等 interval
+        expect(ws.tick(PRIMARY.intervalMs - 1).filter((s) => s.layer === 'primary')).toHaveLength(0);
+        expect(ws.tick(1).filter((s) => s.layer === 'primary')).toHaveLength(1);
+    });
 });
