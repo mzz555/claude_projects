@@ -49,7 +49,7 @@ export const SWARM = {
 /** 追踪导弹层 */
 export const TRACKER = {
     intervalMs: 2000,
-    lv4Factor: 0.65,
+    dualIntervalFactor: 0.65,
     overdriveFactor: 0.5,
     bulletSpeed: 360,
     damage: 8,
@@ -72,6 +72,20 @@ export const OVERDRIVE = {
     durationMs: 10000
 } as const;
 
+/**
+ * 武器等级表（7 级：Lv0 主炮 ~ Lv6 超频 MAX）。
+ *
+ * 设计意图：
+ * - Lv0~Lv5 通过逐级新增层（spread / swarm / tracker / beam）实现强化。
+ * - Lv6 的 layers 与 Lv5 完全相同，因为「超频 MAX」不是新增层，而是一个**调制器**：
+ *   超频由外部 enterOverdrive() 调用激活（持续 OVERDRIVE.durationMs，默认 10s），
+ *   期间所有已启用层都改用各自的 overdrive 参数运行：
+ *     - PRIMARY.overdriveIntervalMs（主炮间隔）
+ *     - SWARM.overdriveSwarmRateMs（蜂群子弹速率）
+ *     - TRACKER.overdriveFactor（追踪导弹间隔系数）
+ *     - BEAM.overdriveWidthStart（激光起始宽度）
+ *   因此从 layers 数据看 Lv5 与 Lv6 相同是正确的，差异在调制层。
+ */
 export const WEAPONS: WeaponLevelSpec[] = [
     { name: '主炮', layers: { primary: true, spread: false, swarm: false, tracker: 0, beam: false } },
     { name: '副炮', layers: { primary: true, spread: true, swarm: false, tracker: 0, beam: false } },
@@ -79,7 +93,7 @@ export const WEAPONS: WeaponLevelSpec[] = [
     { name: '追踪导弹', layers: { primary: true, spread: true, swarm: true, tracker: 1, beam: false } },
     { name: '双导弹', layers: { primary: true, spread: true, swarm: true, tracker: 2, beam: false } },
     { name: '激光炮', layers: { primary: true, spread: true, swarm: true, tracker: 2, beam: true } },
-    { name: '超频 MAX', layers: { primary: true, spread: true, swarm: true, tracker: 2, beam: true } }
+    { name: '超频 MAX', layers: { primary: true, spread: true, swarm: true, tracker: 2, beam: true } } // layers 与 Lv5 同；超频由 enterOverdrive 调制器激活，强化各层参数
 ];
 
 export const MAX_LEVEL = WEAPONS.length - 1;
