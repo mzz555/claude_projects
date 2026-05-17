@@ -99,6 +99,34 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.bulletTextureKey = key;
     }
 
+    setTypeKey(newKey: EnemyTypeKey): void {
+        this.typeKey = newKey;
+        const t = ENEMY_TYPES[newKey];
+        const override = debugParams.enemyOverrides[newKey];
+
+        // 数值（重置 hp 到新 typeKey 的默认满血）
+        this.hp = override?.hp ?? t.hp;
+        this.score = override?.score ?? t.score;
+        this.dmg = override?.dmg ?? t.dmg;
+
+        // 贴图 + display size 重新算
+        this.setTexture(t.sprite);
+        const targetW = t.w * debugParams.enemyDisplayScale;
+        const srcAspect =
+            this.width > 0 && this.height > 0 ? this.height / this.width : t.h / t.w;
+        const targetH = targetW * srcAspect;
+        this.setDisplaySize(targetW, targetH);
+
+        // 子弹
+        this.bulletTextureKey = t.bulletTexture;
+
+        // 行为（沿用现有 setBehavior 复用）
+        this.setBehavior(override?.behaviorId ?? t.behaviorId);
+
+        // hitbox 按新贴图重算
+        this.recomputeAlphaTightBody();
+    }
+
     deactivate(): void {
         this.setActive(false);
         this.setVisible(false);

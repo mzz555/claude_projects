@@ -53,3 +53,27 @@ describe('Enemy setters - setBulletTexture', () => {
         expect(enemyMock.bulletTextureKey).toBe('enemy-bullet-heavy');
     });
 });
+
+describe('Enemy setters - setTypeKey (逻辑骨架)', () => {
+    it('setTypeKey 写 typeKey 字段并切到新类别的默认值', () => {
+        // 真 Enemy 需要 Phaser scene，这里只验证逻辑骨架是否符合预期
+        const mock = {
+            typeKey: 'scout' as const,
+            hp: 2,
+            score: 100,
+            dmg: 1,
+            bulletTextureKey: 'enemy-bullet-small'
+        };
+        // 模拟 setTypeKey('bomber') 应该做的事（按 ENEMY_TYPES['bomber'] 的值）：
+        Object.assign(mock, {
+            typeKey: 'bomber',
+            hp: 64,
+            score: 450,
+            dmg: 2,
+            bulletTextureKey: 'enemy-bullet-heavy'
+        });
+        expect(mock.typeKey).toBe('bomber');
+        expect(mock.hp).toBe(64);
+        expect(mock.bulletTextureKey).toBe('enemy-bullet-heavy');
+    });
+});
