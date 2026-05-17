@@ -306,7 +306,7 @@ export class PlayScene extends Phaser.Scene {
                         delta,
                         wkey
                     );
-                    const bulletTexture = ENEMY_TYPES[e.typeKey].bulletTexture;
+                    const bulletTexture = e.bulletTextureKey;
                     for (const s of shots) {
                         const eb = this.enemyBullets.get() as EnemyBullet | null;
                         if (!eb) continue;

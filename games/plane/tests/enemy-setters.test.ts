@@ -40,3 +40,16 @@ describe('Enemy setters - setBehavior', () => {
         expect(enemyMock.behavior.id).toBe('horizontal-sweep');
     });
 });
+
+describe('Enemy setters - setBulletTexture', () => {
+    it('setBulletTexture 改 bulletTextureKey 字段', () => {
+        const enemyMock = {
+            bulletTextureKey: 'enemy-bullet-small',
+            setBulletTexture(key: string): void {
+                this.bulletTextureKey = key;
+            }
+        };
+        enemyMock.setBulletTexture('enemy-bullet-heavy');
+        expect(enemyMock.bulletTextureKey).toBe('enemy-bullet-heavy');
+    });
+});

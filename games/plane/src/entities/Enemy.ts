@@ -25,6 +25,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     spawnTimer = 0;
     weaponState: EnemyWeaponState = { cooldownMs: 0, burstRemaining: 0, burstNextMs: 0 };
     behavior: IEnemyBehavior | null = null;
+    bulletTextureKey: string = '';
 
     constructor(scene: Phaser.Scene, x: number, y: number) {
         super(scene, x, y, 'enemy-1');
@@ -59,6 +60,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
             this.width > 0 && this.height > 0 ? this.height / this.width : t.h / t.w;
         const targetH = targetW * srcAspect;
         this.setDisplaySize(targetW, targetH);
+        this.bulletTextureKey = t.bulletTexture;
         this.recomputeAlphaTightBody();
         this.setPosition(args.x, args.y);
         this.setVelocity(0, args.vy);
@@ -91,6 +93,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     setBehavior(behaviorId: string): void {
         this.behavior = BehaviorRegistry.instance.create(behaviorId);
         this.behavior?.init(this as never);
+    }
+
+    setBulletTexture(key: string): void {
+        this.bulletTextureKey = key;
     }
 
     deactivate(): void {
