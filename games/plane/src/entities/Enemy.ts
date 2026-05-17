@@ -3,6 +3,7 @@ import { ENEMY_TYPES, type EnemyTypeKey } from '../data/enemyTypes.js';
 import type { EnemyWeaponState } from '../systems/EnemyWeapon.js';
 import { debugParams } from '../debug/debugParams.js';
 import { getAlphaBounds } from '../debug/textureBounds.js';
+import { BehaviorRegistry, type IEnemyBehavior } from '../behaviors/index.js';
 
 export interface EnemySpawnArgs {
     x: number;
@@ -23,6 +24,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     fieldTimer = 0;
     spawnTimer = 0;
     weaponState: EnemyWeaponState = { cooldownMs: 0, burstRemaining: 0, burstNextMs: 0 };
+    behavior: IEnemyBehavior | null = null;
 
     constructor(scene: Phaser.Scene, x: number, y: number) {
         super(scene, x, y, 'enemy-1');
@@ -33,9 +35,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     spawn(args: EnemySpawnArgs): void {
         const t = ENEMY_TYPES[args.typeKey];
         this.typeKey = args.typeKey;
-        this.hp = t.hp;
-        this.score = t.score;
-        this.dmg = t.dmg;
+        const override = debugParams.enemyOverrides[args.typeKey];
+        this.hp = override?.hp ?? t.hp;
+        this.score = override?.score ?? t.score;
+        this.dmg = override?.dmg ?? t.dmg;
         this.behaviorTime = 0;
         this.spawnX = args.x;
         this.sweepDir = Math.random() < 0.5 ? 1 : -1;
@@ -76,6 +79,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         }
         this.setPosition(args.x, args.y);
         this.setVelocity(0, args.vy);
+        // 优先用 debugParams.enemyOverrides[typeKey].behaviorId（测试场覆写），否则用 ENEMY_TYPES 默认
+        const behaviorId = override?.behaviorId ?? t.behaviorId;
+        this.behavior = BehaviorRegistry.instance.create(behaviorId);
+        this.behavior?.init(this as never);
     }
 
     deactivate(): void {
@@ -83,6 +90,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.setVisible(false);
         this.body!.enable = false;
         this.setVelocity(0, 0);
+        this.behavior = null;
     }
 
     takeDamage(amount: number): boolean {

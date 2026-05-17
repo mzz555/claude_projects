@@ -31,15 +31,12 @@ import { ENEMY_TYPES, type EnemyTypeKey } from '../data/enemyTypes.js';
 import type { PowerupKey } from '../data/powerups.js';
 import { WaveDirector } from '../systems/WaveDirector.js';
 import {
-    updateBehavior,
-    shouldConfront,
-    type BehaviorTarget
+    shouldConfront
 } from '../systems/EnemyBehavior.js';
 import { updateBossBehavior } from '../systems/BossBehavior.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { E } from '../events.js';
 import { debugParams } from '../debug/debugParams.js';
-import { DebugPanel } from '../debug/DebugPanel.js';
 
 export class PlayScene extends Phaser.Scene {
     private player!: Player;
@@ -69,7 +66,6 @@ export class PlayScene extends Phaser.Scene {
     private kills = 0;
     private scoreText!: Phaser.GameObjects.Text;
     private hpText!: Phaser.GameObjects.Text;
-    private debugPanel: DebugPanel | null = null;
 
     constructor() {
         super('play');
@@ -88,8 +84,6 @@ export class PlayScene extends Phaser.Scene {
             if (e.code === 'F1') {
                 e.preventDefault();
                 debugParams.showHitbox = !debugParams.showHitbox;
-                this.debugPanel?.unmount();
-                this.debugPanel?.mount();
             }
         };
         const onUp = (e: KeyboardEvent): void => {
@@ -98,15 +92,9 @@ export class PlayScene extends Phaser.Scene {
         window.addEventListener('keydown', onDown);
         window.addEventListener('keyup', onUp);
 
-        // 调参面板
-        this.debugPanel = new DebugPanel();
-        this.debugPanel.mount();
-
         this.events.once('shutdown', () => {
             window.removeEventListener('keydown', onDown);
             window.removeEventListener('keyup', onUp);
-            this.debugPanel?.unmount();
-            this.debugPanel = null;
         });
         const kbSource = { isKeyDown: (code: string): boolean => downKeys.has(code) };
 
@@ -284,27 +272,11 @@ export class PlayScene extends Phaser.Scene {
             }
         }
 
-        const dtSec = delta / 1000;
         const pX = this.player.x;
         this.enemies.children.iterate((obj) => {
             const e = obj as Enemy;
             if (!e.active) return null;
-            const body = e.body as Phaser.Physics.Arcade.Body;
-            const target: BehaviorTarget = {
-                typeKey: e.typeKey,
-                x: e.x,
-                y: e.y,
-                spawnX: e.spawnX,
-                behaviorTime: e.behaviorTime,
-                sweepDir: e.sweepDir,
-                confronting: e.confronting,
-                getVelocityX: () => body.velocity.x,
-                setVelocityX: (v: number) => body.setVelocityX(v),
-                getVelocityY: () => body.velocity.y,
-                setVelocityY: (v: number) => body.setVelocityY(v)
-            };
-            updateBehavior(target, dtSec, pX);
-            e.behaviorTime = target.behaviorTime;
+            e.behavior?.update(delta, pX);
             if (!e.confronting && shouldConfront(e.typeKey, e.y, this.player.y)) {
                 e.confronting = true;
             }

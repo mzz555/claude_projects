@@ -19,6 +19,7 @@ export interface EnemyType {
     vyMax: number;
     sprite: string;
     bulletTexture: string;
+    behaviorId: string;
 }
 
 export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
@@ -33,7 +34,8 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         vyMin: 60,
         vyMax: 120,
         sprite: 'enemy-1',
-        bulletTexture: 'enemy-bullet-small'
+        bulletTexture: 'enemy-bullet-small',
+        behaviorId: 'sinusoidal'
     },
     fighter: {
         label: '战斗机',
@@ -46,7 +48,8 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         vyMin: 36,
         vyMax: 60,
         sprite: 'enemy-2',
-        bulletTexture: 'enemy-bullet-small'
+        bulletTexture: 'enemy-bullet-small',
+        behaviorId: 'player-tracker'
     },
     interceptor: {
         label: '拦截机',
@@ -59,7 +62,8 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         vyMin: 84,
         vyMax: 132,
         sprite: 'enemy-3',
-        bulletTexture: 'enemy-bullet-teardrop'
+        bulletTexture: 'enemy-bullet-teardrop',
+        behaviorId: 'horizontal-sweep'
     },
     elite: {
         label: '精英机',
@@ -72,7 +76,8 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         vyMin: 30,
         vyMax: 54,
         sprite: 'enemy-4',
-        bulletTexture: 'enemy-bullet-shrapnel'
+        bulletTexture: 'enemy-bullet-shrapnel',
+        behaviorId: 'elite-tracker'
     },
     cruiser: {
         label: '巡洋舰',
@@ -85,7 +90,8 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         vyMin: 21,
         vyMax: 39,
         sprite: 'enemy-5',
-        bulletTexture: 'enemy-bullet-orb'
+        bulletTexture: 'enemy-bullet-orb',
+        behaviorId: 'hover'
     },
     bomber: {
         label: '轰炸机',
@@ -98,7 +104,8 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         vyMin: 15,
         vyMax: 30,
         sprite: 'enemy-6',
-        bulletTexture: 'enemy-bullet-heavy'
+        bulletTexture: 'enemy-bullet-heavy',
+        behaviorId: 'hover'
     },
     carrier: {
         label: '母舰',
@@ -111,6 +118,7 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         vyMin: 11,
         vyMax: 21,
         sprite: 'enemy-7',
-        bulletTexture: 'enemy-bullet-heavy'
+        bulletTexture: 'enemy-bullet-heavy',
+        behaviorId: 'hover'
     }
 };
