@@ -78,6 +78,14 @@ export interface EnemyOverride {
     score?: number;
     dmg?: number;
     vy?: number;
+    /** 显示宽度（绝对 px）。null/undefined 时用 t.w * enemyDisplayScale */
+    displayW?: number;
+    /** 显示高度（绝对 px）。null/undefined 时按贴图 aspect 跟随 displayW */
+    displayH?: number;
+    /** 命中框宽比例（相对 alpha 包围盒）。null/undefined 时用 enemyBodyRatio * perEnemyBodyRatio */
+    hitW?: number;
+    /** 命中框高比例 */
+    hitH?: number;
 }
 
 export interface DebugParams {

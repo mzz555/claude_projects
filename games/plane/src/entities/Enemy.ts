@@ -99,14 +99,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.setVisible(true);
         this.body!.enable = true;
         this.setTexture(t.sprite);
-        // 按贴图原始 aspect ratio 缩放：以 t.w*SCALE 作为目标显示宽度，高度跟随贴图自然比例
-        // （ENEMY_TYPES 里的 w/h 是原版 v9.0 卡通飞机比例，与新美术高清贴图比例不一致，
-        //  直接 setDisplaySize(dw, dh) 会强行拉伸贴图，并造成命中框与视觉机体形状对不上）
-        const targetW = t.w * debugParams.enemyDisplayScale;
-        const srcAspect =
-            this.width > 0 && this.height > 0 ? this.height / this.width : t.h / t.w;
-        const targetH = targetW * srcAspect;
-        this.setDisplaySize(targetW, targetH);
+        this.applyDisplaySize();
         this.bulletTextureKey = override?.bulletTexture ?? t.bulletTexture;
         this.weaponKey = (override?.weaponKey as EnemyWeaponKey | undefined)
             ?? ENEMY_WEAPON_MAP[args.typeKey]
@@ -133,8 +126,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         const body = this.body as Phaser.Physics.Arcade.Body;
         const bounds = getAlphaBounds(this.scene, t.sprite);
         const per = debugParams.perEnemyBodyRatio[this.typeKey] ?? { w: 1, h: 1 };
-        const ratioW = debugParams.enemyBodyRatio * per.w;
-        const ratioH = debugParams.enemyBodyRatio * per.h;
+        const override = debugParams.enemyOverrides[this.typeKey];
+        // override.hitW/H 优先（绝对覆盖默认乘积），否则用 enemyBodyRatio * perEnemyBodyRatio 的乘积
+        const ratioW = override?.hitW ?? (debugParams.enemyBodyRatio * per.w);
+        const ratioH = override?.hitH ?? (debugParams.enemyBodyRatio * per.h);
         if (bounds) {
             const bw = bounds.w * ratioW;
             const bh = bounds.h * ratioH;
@@ -146,6 +141,31 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         } else {
             body.setSize(this.width * ratioW, this.height * ratioH, true);
         }
+    }
+
+    /** 按 override 或默认计算并应用 displaySize */
+    private applyDisplaySize(): void {
+        const t = ENEMY_TYPES[this.typeKey];
+        const override = debugParams.enemyOverrides[this.typeKey];
+        // 按贴图原始 aspect ratio 算默认值，避免拉伸贴图
+        const defaultW = t.w * debugParams.enemyDisplayScale;
+        const srcAspect =
+            this.width > 0 && this.height > 0 ? this.height / this.width : t.h / t.w;
+        const defaultH = defaultW * srcAspect;
+        const w = override?.displayW ?? defaultW;
+        const h = override?.displayH ?? defaultH;
+        this.setDisplaySize(w, h);
+    }
+
+    /** 实时改显示尺寸：写入 override 后调用 */
+    refreshDisplaySize(): void {
+        this.applyDisplaySize();
+        this.recomputeAlphaTightBody();
+    }
+
+    /** 实时改命中框：写入 override.hitW/H 后调用 */
+    refreshHitbox(): void {
+        this.recomputeAlphaTightBody();
     }
 
     setBehavior(behaviorId: string): void {
@@ -292,11 +312,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
         // 贴图 + display size 重新算
         this.setTexture(t.sprite);
-        const targetW = t.w * debugParams.enemyDisplayScale;
-        const srcAspect =
-            this.width > 0 && this.height > 0 ? this.height / this.width : t.h / t.w;
-        const targetH = targetW * srcAspect;
-        this.setDisplaySize(targetW, targetH);
+        this.applyDisplaySize();
 
         // 子弹
         this.bulletTextureKey = override?.bulletTexture ?? t.bulletTexture;

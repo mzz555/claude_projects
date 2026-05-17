@@ -410,6 +410,66 @@ export class DebugPanel {
             }
         ));
 
+        // === 📐 尺寸 ===
+        parent.appendChild(sectionTitle('📐 尺寸'));
+
+        // 显示宽度 W（绝对 px）
+        parent.appendChild(sliderRow(
+            '宽度 W px',
+            override.displayW ?? Math.round(e.displayWidth),
+            20,
+            400,
+            5,
+            (v) => {
+                override.displayW = v;
+                // displayH 没设过的话，把当前 H 也写入 override 让两边都被记录
+                if (override.displayH === undefined) override.displayH = Math.round(e.displayHeight);
+                e.refreshDisplaySize();
+            }
+        ));
+
+        // 显示高度 H
+        parent.appendChild(sliderRow(
+            '高度 H px',
+            override.displayH ?? Math.round(e.displayHeight),
+            20,
+            400,
+            5,
+            (v) => {
+                override.displayH = v;
+                if (override.displayW === undefined) override.displayW = Math.round(e.displayWidth);
+                e.refreshDisplaySize();
+            }
+        ));
+
+        // 命中宽 ratio（默认 enemyBodyRatio * perEnemyBodyRatio.w，本机覆盖时取 override）
+        const defaultHitW = debugParams.enemyBodyRatio * (debugParams.perEnemyBodyRatio[typeKey]?.w ?? 1);
+        const defaultHitH = debugParams.enemyBodyRatio * (debugParams.perEnemyBodyRatio[typeKey]?.h ?? 1);
+        parent.appendChild(sliderRow(
+            '命中宽 ratio',
+            override.hitW ?? defaultHitW,
+            0.1,
+            2.0,
+            0.05,
+            (v) => {
+                override.hitW = v;
+                e.refreshHitbox();
+            }
+        ));
+
+        // 命中高 ratio
+        parent.appendChild(sliderRow(
+            '命中高 ratio',
+            override.hitH ?? defaultHitH,
+            0.1,
+            2.0,
+            0.05,
+            (v) => {
+                override.hitH = v;
+                e.refreshHitbox();
+            }
+        ));
+
         // 血条类型（4 选 1，首项"默认"按 tier 自动映射）
         const hbRow = document.createElement('div');
         hbRow.setAttribute('style', ROW);
