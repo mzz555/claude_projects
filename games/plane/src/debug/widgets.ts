@@ -33,6 +33,13 @@ export const BTN = `
   padding: 4px 8px; font: 11px monospace; cursor: pointer; border-radius: 2px;
 `;
 
+/** 按 step 决定保留小数位数：>=1 → 整数；>=0.1 → 1 位；其余 → 2 位 */
+function formatByStep(v: number, step: number): string {
+    if (step >= 1) return String(Math.round(v));
+    if (step >= 0.1) return v.toFixed(1);
+    return v.toFixed(2);
+}
+
 export function sliderRow(
     label: string,
     initial: number,
@@ -46,24 +53,48 @@ export function sliderRow(
     const lab = document.createElement('span');
     lab.style.cssText = 'width: 80px;';
     lab.textContent = label;
-    const input = document.createElement('input');
-    input.type = 'range';
-    input.min = String(min);
-    input.max = String(max);
-    input.step = String(step);
-    input.value = String(initial);
-    input.style.cssText = 'flex: 1;';
-    const badge = document.createElement('span');
-    badge.setAttribute('style', VALUE_BADGE);
-    badge.textContent = initial.toFixed(2);
-    input.oninput = (): void => {
-        const v = parseFloat(input.value);
-        badge.textContent = v.toFixed(2);
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = String(min);
+    slider.max = String(max);
+    slider.step = String(step);
+    slider.value = String(initial);
+    slider.style.cssText = 'flex: 1; min-width: 80px;';
+    // 数值显示：用 number input 取代 span，允许用户点击直接输入精确值
+    const valIn = document.createElement('input');
+    valIn.type = 'number';
+    valIn.min = String(min);
+    valIn.max = String(max);
+    valIn.step = String(step);
+    valIn.value = formatByStep(initial, step);
+    valIn.style.cssText = `${VALUE_BADGE} width: 56px; background: rgba(0,0,0,0.45); border: 1px solid #2a6a7a; padding: 1px 3px; outline: none; font: 11px monospace; text-align: right;`;
+
+    slider.oninput = (): void => {
+        const v = parseFloat(slider.value);
+        valIn.value = formatByStep(v, step);
         onChange(v);
     };
+    valIn.oninput = (): void => {
+        const raw = parseFloat(valIn.value);
+        if (!Number.isFinite(raw)) return;
+        const clamped = Math.min(max, Math.max(min, raw));
+        slider.value = String(clamped);
+        onChange(clamped);
+    };
+    // 失焦时矫正显示（NaN / 超界 → 重新格式化）
+    valIn.onblur = (): void => {
+        const raw = parseFloat(valIn.value);
+        if (!Number.isFinite(raw)) {
+            valIn.value = formatByStep(parseFloat(slider.value), step);
+            return;
+        }
+        const clamped = Math.min(max, Math.max(min, raw));
+        valIn.value = formatByStep(clamped, step);
+        slider.value = String(clamped);
+    };
     row.appendChild(lab);
-    row.appendChild(input);
-    row.appendChild(badge);
+    row.appendChild(slider);
+    row.appendChild(valIn);
     return row;
 }
 
