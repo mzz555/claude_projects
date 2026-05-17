@@ -18,6 +18,7 @@ export interface EnemyType {
     vyMin: number;
     vyMax: number;
     sprite: string;
+    bulletTexture: string;
 }
 
 export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
@@ -31,7 +32,8 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         h: 21,
         vyMin: 60,
         vyMax: 120,
-        sprite: 'enemy-1'
+        sprite: 'enemy-1',
+        bulletTexture: 'enemy-bullet-small'
     },
     fighter: {
         label: '战斗机',
@@ -43,7 +45,8 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         h: 30,
         vyMin: 36,
         vyMax: 60,
-        sprite: 'enemy-2'
+        sprite: 'enemy-2',
+        bulletTexture: 'enemy-bullet-small'
     },
     interceptor: {
         label: '拦截机',
@@ -55,7 +58,8 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         h: 19,
         vyMin: 84,
         vyMax: 132,
-        sprite: 'enemy-3'
+        sprite: 'enemy-3',
+        bulletTexture: 'enemy-bullet-teardrop'
     },
     elite: {
         label: '精英机',
@@ -67,7 +71,8 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         h: 35,
         vyMin: 30,
         vyMax: 54,
-        sprite: 'enemy-4'
+        sprite: 'enemy-4',
+        bulletTexture: 'enemy-bullet-shrapnel'
     },
     cruiser: {
         label: '巡洋舰',
@@ -79,7 +84,8 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         h: 42,
         vyMin: 21,
         vyMax: 39,
-        sprite: 'enemy-5'
+        sprite: 'enemy-5',
+        bulletTexture: 'enemy-bullet-orb'
     },
     bomber: {
         label: '轰炸机',
@@ -91,7 +97,8 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         h: 56,
         vyMin: 15,
         vyMax: 30,
-        sprite: 'enemy-6'
+        sprite: 'enemy-6',
+        bulletTexture: 'enemy-bullet-heavy'
     },
     carrier: {
         label: '母舰',
@@ -103,6 +110,7 @@ export const ENEMY_TYPES: Record<EnemyTypeKey, EnemyType> = {
         h: 70,
         vyMin: 11,
         vyMax: 21,
-        sprite: 'enemy-7'
+        sprite: 'enemy-7',
+        bulletTexture: 'enemy-bullet-heavy'
     }
 };

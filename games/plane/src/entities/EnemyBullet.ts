@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { debugParams, type EnemyBulletTextureKey } from '../debug/debugParams.js';
 
 export interface EnemyBulletSpawnArgs {
     x: number;
@@ -6,8 +7,10 @@ export interface EnemyBulletSpawnArgs {
     vx: number;
     vy: number;
     damage: number;
-    color: number;
+    texture: string;
 }
+
+const DEFAULT_BULLET_SIZE: [number, number] = [66, 90];
 
 export class EnemyBullet extends Phaser.Physics.Arcade.Image {
     damage = 0;
@@ -25,8 +28,18 @@ export class EnemyBullet extends Phaser.Physics.Arcade.Image {
         this.setPosition(args.x, args.y);
         this.setVelocity(args.vx, args.vy);
         this.damage = args.damage;
-        this.setTint(args.color);
-        this.setDisplaySize(8, 8);
+        if (this.scene.textures.exists(args.texture)) {
+            this.setTexture(args.texture);
+            this.clearTint();
+            const key = args.texture as EnemyBulletTextureKey;
+            const [w, h] = debugParams.bulletSize[key] ?? DEFAULT_BULLET_SIZE;
+            this.setDisplaySize(w, h);
+            // 命中框收一点，避免方形包围盒外擦也算中
+            (this.body as Phaser.Physics.Arcade.Body).setSize(w * 0.6, h * 0.6, true);
+        } else {
+            this.setTexture('__BULLET__');
+            this.setDisplaySize(8, 8);
+        }
     }
 
     deactivate(): void {

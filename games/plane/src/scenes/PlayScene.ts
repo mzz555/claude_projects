@@ -38,6 +38,8 @@ import {
 import { updateBossBehavior } from '../systems/BossBehavior.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { E } from '../events.js';
+import { debugParams } from '../debug/debugParams.js';
+import { DebugPanel } from '../debug/DebugPanel.js';
 
 export class PlayScene extends Phaser.Scene {
     private player!: Player;
@@ -67,6 +69,7 @@ export class PlayScene extends Phaser.Scene {
     private kills = 0;
     private scoreText!: Phaser.GameObjects.Text;
     private hpText!: Phaser.GameObjects.Text;
+    private debugPanel: DebugPanel | null = null;
 
     constructor() {
         super('play');
@@ -82,15 +85,28 @@ export class PlayScene extends Phaser.Scene {
         const downKeys = new Set<string>();
         const onDown = (e: KeyboardEvent): void => {
             downKeys.add(e.code);
+            if (e.code === 'F1') {
+                e.preventDefault();
+                debugParams.showHitbox = !debugParams.showHitbox;
+                this.debugPanel?.unmount();
+                this.debugPanel?.mount();
+            }
         };
         const onUp = (e: KeyboardEvent): void => {
             downKeys.delete(e.code);
         };
         window.addEventListener('keydown', onDown);
         window.addEventListener('keyup', onUp);
+
+        // 调参面板
+        this.debugPanel = new DebugPanel();
+        this.debugPanel.mount();
+
         this.events.once('shutdown', () => {
             window.removeEventListener('keydown', onDown);
             window.removeEventListener('keyup', onUp);
+            this.debugPanel?.unmount();
+            this.debugPanel = null;
         });
         const kbSource = { isKeyDown: (code: string): boolean => downKeys.has(code) };
 
@@ -231,6 +247,14 @@ export class PlayScene extends Phaser.Scene {
     }
 
     override update(_time: number, delta: number): void {
+        // 同步命中框可视化（调参面板/F1 切换）
+        const world = this.physics.world;
+        if (debugParams.showHitbox && !world.debugGraphic) {
+            world.createDebugGraphic();
+        }
+        world.drawDebug = debugParams.showHitbox;
+        if (world.debugGraphic) world.debugGraphic.setVisible(debugParams.showHitbox);
+
         this.player.tickPlayer(delta);
 
         // 分层 tick：每帧同时跑普通层（primary/spread/swarm/tracker）+ 激光层
@@ -310,6 +334,7 @@ export class PlayScene extends Phaser.Scene {
                         delta,
                         wkey
                     );
+                    const bulletTexture = ENEMY_TYPES[e.typeKey].bulletTexture;
                     for (const s of shots) {
                         const eb = this.enemyBullets.get() as EnemyBullet | null;
                         if (!eb) continue;
@@ -319,7 +344,7 @@ export class PlayScene extends Phaser.Scene {
                             vx: s.vx,
                             vy: s.vy,
                             damage: s.damage,
-                            color: s.color
+                            texture: bulletTexture
                         });
                     }
                 }
