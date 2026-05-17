@@ -4,12 +4,14 @@ import { Enemy, makeEnemyPool } from '../entities/Enemy.js';
 import { Player } from '../entities/Player.js';
 import { Bullet, makeBulletPool } from '../entities/Bullet.js';
 import { EnemyBullet, makeEnemyBulletPool } from '../entities/EnemyBullet.js';
-import { ENEMY_TYPE_KEYS, type EnemyTypeKey } from '../debug/debugParams.js';
+import { ENEMY_TYPE_KEYS, type EnemyTypeKey, debugParams } from '../debug/debugParams.js';
 import { ENEMY_TYPES } from '../data/enemyTypes.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { WeaponSystem, type ShotSpec } from '../systems/WeaponSystem.js';
 import { PRIMARY } from '../data/weapons.js';
 import { E } from '../events.js';
+import { DebugPanel } from '../debug/DebugPanel.js';
+import { EnemyInspector } from '../debug/EnemyInspector.js';
 
 interface FixedSlot {
     typeKey: EnemyTypeKey;
@@ -25,6 +27,9 @@ export class TestScene extends Phaser.Scene {
     private weapon = new WeaponSystem();
     private slots: FixedSlot[] = [];
     private respawnQueue: { slotIdx: number; dueAt: number }[] = [];
+    private debugPanel: DebugPanel | null = null;
+    private inspector: EnemyInspector | null = null;
+    private toolbar: HTMLDivElement | null = null;
 
     constructor() {
         super('test');
@@ -43,6 +48,12 @@ export class TestScene extends Phaser.Scene {
             window.removeEventListener('keydown', onDown);
             window.removeEventListener('keyup', onUp);
             this.events.off(E.EnemyKilled);
+            this.debugPanel?.unmount();
+            this.inspector?.unmount();
+            this.toolbar?.remove();
+            this.debugPanel = null;
+            this.inspector = null;
+            this.toolbar = null;
         });
         const kbSource = { isKeyDown: (code: string): boolean => downKeys.has(code) };
         this.player = new Player(this, this.scale.width / 2, PLAY_AREA.y + PLAY_AREA.h - 80, kbSource);
@@ -85,19 +96,41 @@ export class TestScene extends Phaser.Scene {
             const idx = this.findSlotIndexByPos(p.x, p.y);
             if (idx >= 0) this.respawnQueue.push({ slotIdx: idx, dueAt: this.time.now + 1000 });
         });
+
+        // 调参 UI
+        this.debugPanel = new DebugPanel();
+        this.debugPanel.mount();
+        this.inspector = new EnemyInspector();
+        this.inspector.mount();
+        this.toolbar = this.makeToolbar();
+
+        // 敌机可点击：点击 → 选中
+        this.input.on('gameobjectdown', (_pointer: unknown, obj: Phaser.GameObjects.GameObject) => {
+            if (obj instanceof Enemy) this.inspector?.select(obj);
+        });
+        // 让每架现有敌机和将来 spawn 的敌机都可交互
+        this.enemies.children.iterate((obj) => {
+            (obj as Enemy).setInteractive();
+            return null;
+        });
+
     }
 
     override update(_time: number, delta: number): void {
-        this.player.tickPlayer(delta);
-        // 武器开火
-        const specs = this.weapon.tick(delta);
+        this.inspector?.tick();
+
+        // 暂停：DOM 面板仍可交互
+        if (debugParams.paused) return;
+        const dt = delta * debugParams.timeScale;
+
+        this.player.tickPlayer(dt);
+        const specs = this.weapon.tick(dt);
         for (const spec of specs) this.fireSpec(spec);
 
-        // 敌机 behavior tick
         this.enemies.children.iterate((obj) => {
             const e = obj as Enemy;
             if (!e.active) return null;
-            e.behavior?.update(delta, this.player.x);
+            e.behavior?.update(dt, this.player.x);
             return null;
         });
 
@@ -115,6 +148,7 @@ export class TestScene extends Phaser.Scene {
         const e = this.enemies.get() as Enemy | null;
         if (!e) return;
         e.spawn({ x: slot.x, y: slot.y, typeKey: slot.typeKey, vy: 0 });
+        e.setInteractive();
     }
 
     private findSlotIndexByPos(x: number, y: number): number {
@@ -138,5 +172,50 @@ export class TestScene extends Phaser.Scene {
         };
         if (spec.color !== undefined) args.color = spec.color;
         bullet.fire(args);
+    }
+
+    private makeToolbar(): HTMLDivElement {
+        const bar = document.createElement('div');
+        bar.id = '__plane_toolbar__';
+        bar.style.cssText = `
+            position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 9999;
+            background: rgba(0, 16, 24, 0.92); padding: 6px 10px; border-radius: 4px;
+            border: 1px solid #1a4a5a; display: flex; gap: 8px; align-items: center;
+            font: 12px monospace;
+        `;
+        const mkBtn = (text: string, onClick: () => void): HTMLButtonElement => {
+            const b = document.createElement('button');
+            b.textContent = text;
+            b.style.cssText = 'background: #1a4a5a; color: #fff; border: 1px solid #2a6a7a; padding: 4px 10px; cursor: pointer; border-radius: 2px;';
+            b.onclick = onClick;
+            return b;
+        };
+        const pauseBtn = mkBtn('⏸ 暂停', () => {
+            debugParams.paused = !debugParams.paused;
+            pauseBtn.textContent = debugParams.paused ? '▶ 继续' : '⏸ 暂停';
+        });
+        bar.appendChild(pauseBtn);
+
+        bar.appendChild(mkBtn('🐢 慢放 ×0.25', () => (debugParams.timeScale = 0.25)));
+        bar.appendChild(mkBtn('🐇 正常 ×1', () => (debugParams.timeScale = 1.0)));
+        bar.appendChild(mkBtn('🔄 重置全部', () => {
+            this.enemies.children.iterate((obj) => {
+                (obj as Enemy).deactivate();
+                return null;
+            });
+            this.slots.forEach((_, i) => this.spawnSlot(i));
+            // 重新让新 spawn 的可交互
+            this.enemies.children.iterate((obj) => {
+                (obj as Enemy).setInteractive();
+                return null;
+            });
+        }));
+        bar.appendChild(mkBtn('🧹 清空子弹', () => {
+            this.bullets.children.iterate((b) => { (b as Bullet).deactivate(); return null; });
+            this.enemyBullets.children.iterate((b) => { (b as EnemyBullet).deactivate(); return null; });
+        }));
+        bar.appendChild(mkBtn('↩ 返回菜单', () => this.scene.start('title')));
+        document.body.appendChild(bar);
+        return bar;
     }
 }
