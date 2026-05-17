@@ -88,6 +88,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         }
     }
 
+    setBehavior(behaviorId: string): void {
+        this.behavior = BehaviorRegistry.instance.create(behaviorId);
+        this.behavior?.init(this as never);
+    }
+
     deactivate(): void {
         this.setActive(false);
         this.setVisible(false);
