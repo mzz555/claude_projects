@@ -4,8 +4,7 @@ import { Enemy, makeEnemyPool } from '../entities/Enemy.js';
 import { Player } from '../entities/Player.js';
 import { Bullet, makeBulletPool } from '../entities/Bullet.js';
 import { EnemyBullet, makeEnemyBulletPool } from '../entities/EnemyBullet.js';
-import { ENEMY_TYPE_KEYS, type EnemyTypeKey, debugParams } from '../debug/debugParams.js';
-import { ENEMY_TYPES } from '../data/enemyTypes.js';
+import { type EnemyTypeKey, debugParams } from '../debug/debugParams.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { WeaponSystem, type ShotSpec } from '../systems/WeaponSystem.js';
 import { updateEnemyWeapon } from '../systems/EnemyWeapon.js';
@@ -68,24 +67,13 @@ export class TestScene extends Phaser.Scene {
         this.enemies = makeEnemyPool(this, 16);
         this.enemyBullets = makeEnemyBulletPool(this, 128);
 
-        // 7 架横向布局（顶部 1/3 位置）
-        const margin = 100;
-        const usableW = PLAY_AREA.w - margin * 2;
-        const stepX = usableW / (ENEMY_TYPE_KEYS.length - 1);
-        const rowY = PLAY_AREA.y + 140;
-        ENEMY_TYPE_KEYS.forEach((typeKey, i) => {
-            this.slots.push({ typeKey, x: PLAY_AREA.x + margin + stepX * i, y: rowY });
+        // 1 对 1 模式：场上只有 1 架敌机，类型完全由调参面板"敌机类别"下拉控制
+        this.slots.push({
+            typeKey: 'scout',
+            x: PLAY_AREA.x + PLAY_AREA.w / 2,
+            y: PLAY_AREA.y + 180
         });
-        this.slots.forEach((_, i) => this.spawnSlot(i));
-
-        // 中文名 label
-        this.slots.forEach((slot) => {
-            this.add.text(slot.x, slot.y + 60, ENEMY_TYPES[slot.typeKey].label, {
-                fontFamily: PLANE_THEME.fontFamily,
-                fontSize: '12px',
-                color: '#ffaa00'
-            }).setOrigin(0.5);
-        });
+        // spawn 放到 DebugPanel mount 之后，这样 spawnSlot 里 selectEnemy 才能生效
 
         new CollisionSystem({
             scene: this,
@@ -104,10 +92,9 @@ export class TestScene extends Phaser.Scene {
             bullet.deactivate();
         });
 
-        // 监听 EnemyKilled → 排入 1 秒后复活队列
-        this.events.on(E.EnemyKilled, (p: { x: number; y: number }) => {
-            const idx = this.findSlotIndexByPos(p.x, p.y);
-            if (idx >= 0) this.respawnQueue.push({ slotIdx: idx, dueAt: this.time.now + 1000 });
+        // 监听 EnemyKilled → 排入 1 秒后复活（1 对 1 模式恒为 slot 0）
+        this.events.on(E.EnemyKilled, () => {
+            this.respawnQueue.push({ slotIdx: 0, dueAt: this.time.now + 1000 });
         });
 
         // 轨迹图层
@@ -118,17 +105,15 @@ export class TestScene extends Phaser.Scene {
         this.debugPanel = new DebugPanel();
         this.debugPanel.mount();
         this.debugPanel.onSwapTypeKey = (i, k) => this.swapSlotTypeKey(i, k);
-        this.debugPanel.resolveSlotIdx = (x, y) => this.findSlotIndexByPos(x, y);
+        this.debugPanel.resolveSlotIdx = () => 0;  // 1 对 1 模式恒为 slot 0
         this.toolbar = this.makeToolbar();
 
-        // 敌机可点击：点击 → 选中
+        // 现在 DebugPanel 已 mount，spawn 那架敌机（spawnSlot 内部会 selectEnemy）
+        this.spawnSlot(0);
+
+        // 敌机可点击：点击 → 选中（1 对 1 模式下只一架，自动选中后这个仍可用）
         this.input.on('gameobjectdown', (_pointer: unknown, obj: Phaser.GameObjects.GameObject) => {
             if (obj instanceof Enemy) this.debugPanel?.selectEnemy(obj);
-        });
-        // 让每架现有敌机和将来 spawn 的敌机都可交互
-        this.enemies.children.iterate((obj) => {
-            (obj as Enemy).setInteractive();
-            return null;
         });
 
     }
@@ -224,28 +209,20 @@ export class TestScene extends Phaser.Scene {
         if (!e) return;
         e.spawn({ x: slot.x, y: slot.y, typeKey: slot.typeKey, vy: 0 });
         e.setInteractive();
+        // 1 对 1 模式：复活后自动选中，让 DebugPanel 跟着这架走
+        this.debugPanel?.selectEnemy(e);
     }
 
     swapSlotTypeKey(slotIdx: number, newKey: EnemyTypeKey): void {
         const slot = this.slots[slotIdx];
         if (!slot) return;
         slot.typeKey = newKey;
+        // 1 对 1 模式：所有 active enemy（其实只 1 架）都跟着切
         this.enemies.children.iterate((obj) => {
             const e = obj as Enemy;
-            if (!e.active) return null;
-            const idx = this.findSlotIndexByPos(e.x, e.y);
-            if (idx === slotIdx) e.setTypeKey(newKey);
+            if (e.active) e.setTypeKey(newKey);
             return null;
         });
-    }
-
-    private findSlotIndexByPos(x: number, y: number): number {
-        // 半径 80px 内
-        for (let i = 0; i < this.slots.length; i++) {
-            const s = this.slots[i]!;
-            if (Math.hypot(s.x - x, s.y - y) < 80) return i;
-        }
-        return -1;
     }
 
     private fireSpec(spec: ShotSpec): void {
