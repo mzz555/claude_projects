@@ -31,11 +31,9 @@ const BULLET_LABELS: Record<EnemyBulletTextureKey, string> = {
 };
 
 const BEHAVIOR_OPTIONS = [
-    'sinusoidal',
-    'player-tracker',
-    'elite-tracker',
-    'horizontal-sweep',
-    'hover'
+    'sinusoidal', 'player-tracker', 'elite-tracker', 'horizontal-sweep', 'hover',
+    'zigzag', 'circle', 'figure-8', 'random-walk', 'dive-bomb',
+    'pulse', 'charge', 'flank', 'mirror', 'tornado'
 ] as const;
 
 export class DebugPanel {

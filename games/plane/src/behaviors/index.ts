@@ -4,6 +4,16 @@ import { SinusoidalBehavior } from './SinusoidalBehavior.js';
 import { PlayerTrackerBehavior } from './PlayerTrackerBehavior.js';
 import { HorizontalSweepBehavior } from './HorizontalSweepBehavior.js';
 import { HoverBehavior } from './HoverBehavior.js';
+import { ZigzagBehavior } from './ZigzagBehavior.js';
+import { CircleBehavior } from './CircleBehavior.js';
+import { Figure8Behavior } from './Figure8Behavior.js';
+import { RandomWalkBehavior } from './RandomWalkBehavior.js';
+import { DiveBombBehavior } from './DiveBombBehavior.js';
+import { PulseBehavior } from './PulseBehavior.js';
+import { ChargeBehavior } from './ChargeBehavior.js';
+import { FlankBehavior } from './FlankBehavior.js';
+import { MirrorBehavior } from './MirrorBehavior.js';
+import { TornadoBehavior } from './TornadoBehavior.js';
 
 let registered = false;
 
@@ -16,6 +26,16 @@ export function registerAllBehaviors(): void {
     r.register('elite-tracker', () => new PlayerTrackerBehavior({ id: 'elite-tracker', displayName: '精英追踪', trackSpeed: 60 }));
     r.register('horizontal-sweep', () => new HorizontalSweepBehavior({ speed: 240 }));
     r.register('hover', () => new HoverBehavior());
+    r.register('zigzag', () => new ZigzagBehavior());
+    r.register('circle', () => new CircleBehavior());
+    r.register('figure-8', () => new Figure8Behavior());
+    r.register('random-walk', () => new RandomWalkBehavior());
+    r.register('dive-bomb', () => new DiveBombBehavior());
+    r.register('pulse', () => new PulseBehavior());
+    r.register('charge', () => new ChargeBehavior());
+    r.register('flank', () => new FlankBehavior());
+    r.register('mirror', () => new MirrorBehavior());
+    r.register('tornado', () => new TornadoBehavior());
 }
 
 export { BehaviorRegistry } from './BehaviorRegistry.js';
