@@ -59,11 +59,20 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
             this.width > 0 && this.height > 0 ? this.height / this.width : t.h / t.w;
         const targetH = targetW * srcAspect;
         this.setDisplaySize(targetW, targetH);
-        // 命中体积：alpha 紧致包围盒（裁掉透明边距）× 全局 enemyBodyRatio × 每机微调
-        // setSize/setOffset 用的是 sprite 原图像素坐标系，Phaser 内部按 scale 自动换算
+        this.recomputeAlphaTightBody();
+        this.setPosition(args.x, args.y);
+        this.setVelocity(0, args.vy);
+        // 优先用 debugParams.enemyOverrides[typeKey].behaviorId（测试场覆写），否则用 ENEMY_TYPES 默认
+        const behaviorId = override?.behaviorId ?? t.behaviorId;
+        this.behavior = BehaviorRegistry.instance.create(behaviorId);
+        this.behavior?.init(this as never);
+    }
+
+    private recomputeAlphaTightBody(): void {
+        const t = ENEMY_TYPES[this.typeKey];
         const body = this.body as Phaser.Physics.Arcade.Body;
         const bounds = getAlphaBounds(this.scene, t.sprite);
-        const per = debugParams.perEnemyBodyRatio[args.typeKey] ?? { w: 1, h: 1 };
+        const per = debugParams.perEnemyBodyRatio[this.typeKey] ?? { w: 1, h: 1 };
         const ratioW = debugParams.enemyBodyRatio * per.w;
         const ratioH = debugParams.enemyBodyRatio * per.h;
         if (bounds) {
@@ -77,12 +86,6 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         } else {
             body.setSize(this.width * ratioW, this.height * ratioH, true);
         }
-        this.setPosition(args.x, args.y);
-        this.setVelocity(0, args.vy);
-        // 优先用 debugParams.enemyOverrides[typeKey].behaviorId（测试场覆写），否则用 ENEMY_TYPES 默认
-        const behaviorId = override?.behaviorId ?? t.behaviorId;
-        this.behavior = BehaviorRegistry.instance.create(behaviorId);
-        this.behavior?.init(this as never);
     }
 
     deactivate(): void {
