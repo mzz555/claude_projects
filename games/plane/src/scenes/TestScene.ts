@@ -112,7 +112,9 @@ export class TestScene extends Phaser.Scene {
             bullets: this.bullets,
             powerups: this.powerups,
             meteors: this.physics.add.group(),
-            onPowerupPicked: (key) => this.handlePowerupPicked(key)
+            onPowerupPicked: (key) => this.handlePowerupPicked(key),
+            // 测试场：玩家从敌机身上穿过去，不触发反应（敌机不能因为撞机消失，否则没法继续观察）
+            disablePlayerEnemyCollision: true
         });
 
         // spawn 5 个固定位置 powerup

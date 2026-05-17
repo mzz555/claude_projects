@@ -15,6 +15,12 @@ export interface CollisionSystemOpts {
     powerups: Phaser.Physics.Arcade.Group;
     meteors: Phaser.Physics.Arcade.Group;
     onPowerupPicked: (key: PowerupKey) => void;
+    /**
+     * 跳过 player↔enemy 直接碰撞处理。
+     * - false（默认）：PlayScene 正常 — 撞机 emit PlayerHit + enemy.deactivate
+     * - true：TestScene 用 — 完全跳过这条 overlap，玩家能从敌机身上穿过去，敌机不消失
+     */
+    disablePlayerEnemyCollision?: boolean;
 }
 
 export class CollisionSystem {
@@ -51,14 +57,16 @@ export class CollisionSystem {
             }
         });
 
-        scene.physics.add.overlap(player, enemies, (_p, b) => {
-            const enemy = b as Enemy;
-            if (!enemy.active) return;
-            if (!player.isShielded()) {
-                scene.events.emit(E.PlayerHit, { damage: enemy.dmg, x: player.x, y: player.y });
-            }
-            enemy.deactivate();
-        });
+        if (!opts.disablePlayerEnemyCollision) {
+            scene.physics.add.overlap(player, enemies, (_p, b) => {
+                const enemy = b as Enemy;
+                if (!enemy.active) return;
+                if (!player.isShielded()) {
+                    scene.events.emit(E.PlayerHit, { damage: enemy.dmg, x: player.x, y: player.y });
+                }
+                enemy.deactivate();
+            });
+        }
 
         scene.physics.add.overlap(player, meteors, (_p, m) => {
             const meteor = m as Meteor;
