@@ -17,6 +17,11 @@ import { TornadoBehavior } from './TornadoBehavior.js';
 import { SCurveBehavior } from './SCurveBehavior.js';
 import { LoopBackBehavior } from './LoopBackBehavior.js';
 import { BezierPathBehavior } from './BezierPathBehavior.js';
+import { RamBehavior } from './RamBehavior.js';
+import { CycloidBehavior } from './CycloidBehavior.js';
+import { SpiralEntryBehavior } from './SpiralEntryBehavior.js';
+import { HelicopterBehavior } from './HelicopterBehavior.js';
+import { VeeringSwoopBehavior } from './VeeringSwoopBehavior.js';
 
 let registered = false;
 
@@ -42,6 +47,11 @@ export function registerAllBehaviors(): void {
     r.register('s-curve', () => new SCurveBehavior());
     r.register('loop-back', () => new LoopBackBehavior());
     r.register('bezier-path', () => new BezierPathBehavior());
+    r.register('ram', () => new RamBehavior());
+    r.register('cycloid', () => new CycloidBehavior());
+    r.register('spiral-entry', () => new SpiralEntryBehavior());
+    r.register('helicopter', () => new HelicopterBehavior());
+    r.register('veering-swoop', () => new VeeringSwoopBehavior());
 }
 
 export { BehaviorRegistry } from './BehaviorRegistry.js';

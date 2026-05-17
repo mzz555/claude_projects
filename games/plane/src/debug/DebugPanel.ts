@@ -34,7 +34,8 @@ const BEHAVIOR_OPTIONS = [
     'sinusoidal', 'player-tracker', 'elite-tracker', 'horizontal-sweep', 'hover',
     'zigzag', 'circle', 'figure-8', 'random-walk', 'dive-bomb',
     'pulse', 'charge', 'flank', 'mirror', 'tornado',
-    's-curve', 'loop-back', 'bezier-path'
+    's-curve', 'loop-back', 'bezier-path',
+    'ram', 'cycloid', 'spiral-entry', 'helicopter', 'veering-swoop'
 ] as const;
 
 export class DebugPanel {
