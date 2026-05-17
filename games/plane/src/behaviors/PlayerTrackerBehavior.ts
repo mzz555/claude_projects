@@ -8,16 +8,20 @@ interface BehaviorEnemyShape {
 }
 
 export interface PlayerTrackerOpts {
+    id?: string;
+    displayName?: string;
     trackSpeed?: number;
 }
 
 export class PlayerTrackerBehavior implements IEnemyBehavior {
-    readonly id = 'player-tracker';
-    readonly displayName = '追踪玩家';
+    readonly id: string;
+    readonly displayName: string;
     private trackSpeed: number;
     private enemy: BehaviorEnemyShape | null = null;
 
     constructor(opts: PlayerTrackerOpts = {}) {
+        this.id = opts.id ?? 'player-tracker';
+        this.displayName = opts.displayName ?? '追踪玩家';
         this.trackSpeed = opts.trackSpeed ?? 80;
     }
 

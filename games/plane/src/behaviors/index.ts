@@ -12,8 +12,8 @@ export function registerAllBehaviors(): void {
     registered = true;
     const r = BehaviorRegistry.instance;
     r.register('sinusoidal', () => new SinusoidalBehavior());
-    r.register('player-tracker', () => new PlayerTrackerBehavior({ trackSpeed: 80 }));
-    r.register('elite-tracker', () => new PlayerTrackerBehavior({ trackSpeed: 60 }));
+    r.register('player-tracker', () => new PlayerTrackerBehavior({ id: 'player-tracker', displayName: '追踪玩家', trackSpeed: 80 }));
+    r.register('elite-tracker', () => new PlayerTrackerBehavior({ id: 'elite-tracker', displayName: '精英追踪', trackSpeed: 60 }));
     r.register('horizontal-sweep', () => new HorizontalSweepBehavior({ speed: 240 }));
     r.register('hover', () => new HoverBehavior());
 }
