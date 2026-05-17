@@ -18,7 +18,7 @@ import {
 } from './debugParams.js';
 import {
     STYLE, HEADER_STYLE, ROW,
-    sliderRow, numberRow, checkboxRow, sectionTitle, button
+    sliderRow, numberRow, checkboxRow, sectionTitle, button, collapsibleSection
 } from './widgets.js';
 import type { Enemy } from '../entities/Enemy.js';
 import { ENEMY_TYPES, defaultHealthBarByTier } from '../data/enemyTypes.js';
@@ -136,10 +136,11 @@ export class DebugPanel {
         // 显示命中框（F1 也可切）
         r.appendChild(checkboxRow('显示命中框（F1）', debugParams.showHitbox, (v) => (debugParams.showHitbox = v)));
 
-        // === 🎆 特效（全局开关）===
-        r.appendChild(sectionTitle('🎆 特效'));
-        r.appendChild(checkboxRow('启用粒子特效', debugParams.fxEnabled, (v) => (debugParams.fxEnabled = v)));
-        r.appendChild(sliderRow(
+        // === 🎆 特效（全局开关，可折叠）===
+        const fxSec = collapsibleSection('🎆 特效', 'fx', false);
+        r.appendChild(fxSec.container);
+        fxSec.body.appendChild(checkboxRow('启用粒子特效', debugParams.fxEnabled, (v) => (debugParams.fxEnabled = v)));
+        fxSec.body.appendChild(sliderRow(
             '特效强度',
             debugParams.fxIntensity,
             0.3,
@@ -279,8 +280,10 @@ export class DebugPanel {
         behRow.appendChild(behSel);
         parent.appendChild(behRow);
 
-        // === 🔫 武器子区（发射方式 + 子弹外观）===
-        parent.appendChild(sectionTitle('🔫 武器'));
+        // === 🔫 武器子区（折叠）===
+        const weaponSec = collapsibleSection('🔫 武器', 'weapon');
+        parent.appendChild(weaponSec.container);
+        const weaponBody = weaponSec.body;
 
         // 发射方式（5 选 1，首项"默认"按 ENEMY_WEAPON_MAP 走）
         const defWeap: EnemyWeaponKey = ENEMY_WEAPON_MAP[typeKey] ?? 'single';
@@ -309,7 +312,7 @@ export class DebugPanel {
         };
         weapRow.appendChild(weapLab);
         weapRow.appendChild(weapSel);
-        parent.appendChild(weapRow);
+        weaponBody.appendChild(weapRow);
 
         // 子弹覆盖
         const bulRow = document.createElement('div');
@@ -337,7 +340,7 @@ export class DebugPanel {
         };
         bulRow.appendChild(bulLab);
         bulRow.appendChild(bulSel);
-        parent.appendChild(bulRow);
+        weaponBody.appendChild(bulRow);
 
         // 子弹方向（2 选 1，首项"默认（面向英雄机）"清 override）
         const aimRow = document.createElement('div');
@@ -365,11 +368,11 @@ export class DebugPanel {
         };
         aimRow.appendChild(aimLab);
         aimRow.appendChild(aimSel);
-        parent.appendChild(aimRow);
+        weaponBody.appendChild(aimRow);
 
         // 攻击间隔 ms（覆盖 weaponKey 默认 intervalMs；越小越频繁）
         const curWeaponInterval = ENEMY_WEAPONS[e.weaponKey].intervalMs;
-        parent.appendChild(sliderRow(
+        weaponBody.appendChild(sliderRow(
             '攻击间隔 ms',
             override.attackIntervalMs ?? curWeaponInterval,
             100,
@@ -383,7 +386,7 @@ export class DebugPanel {
 
         // 子弹速度 px/s（覆盖 weaponKey 默认 bulletSpeed；越大越快）
         const curWeaponSpeed = ENEMY_WEAPONS[e.weaponKey].bulletSpeed;
-        parent.appendChild(sliderRow(
+        weaponBody.appendChild(sliderRow(
             '子弹速度',
             override.bulletSpeed ?? curWeaponSpeed,
             50,
@@ -395,11 +398,13 @@ export class DebugPanel {
             }
         ));
 
-        // === 🚨 预警线 ===
-        parent.appendChild(sectionTitle('🚨 预警线'));
+        // === 🚨 预警线（折叠）===
+        const teleSec = collapsibleSection('🚨 预警线', 'telegraph');
+        parent.appendChild(teleSec.container);
+        const teleBody = teleSec.body;
 
         // 启用复选框
-        parent.appendChild(checkboxRow(
+        teleBody.appendChild(checkboxRow(
             '启用预警',
             override.telegraphEnabled ?? false,
             (v) => {
@@ -429,10 +434,10 @@ export class DebugPanel {
         };
         tgRow.appendChild(tgLab);
         tgRow.appendChild(tgSel);
-        parent.appendChild(tgRow);
+        teleBody.appendChild(tgRow);
 
         // 预警时间 ms
-        parent.appendChild(sliderRow(
+        teleBody.appendChild(sliderRow(
             '预警时间 ms',
             override.telegraphMs ?? 500,
             100,
@@ -444,11 +449,13 @@ export class DebugPanel {
             }
         ));
 
-        // === 📐 尺寸 ===
-        parent.appendChild(sectionTitle('📐 尺寸'));
+        // === 📐 尺寸（折叠）===
+        const sizeSec = collapsibleSection('📐 尺寸', 'size', false);
+        parent.appendChild(sizeSec.container);
+        const sizeBody = sizeSec.body;
 
         // 显示宽度 W（绝对 px）
-        parent.appendChild(sliderRow(
+        sizeBody.appendChild(sliderRow(
             '宽度 W px',
             override.displayW ?? Math.round(e.displayWidth),
             20,
@@ -463,7 +470,7 @@ export class DebugPanel {
         ));
 
         // 显示高度 H
-        parent.appendChild(sliderRow(
+        sizeBody.appendChild(sliderRow(
             '高度 H px',
             override.displayH ?? Math.round(e.displayHeight),
             20,
@@ -479,7 +486,7 @@ export class DebugPanel {
         // 命中宽 ratio（默认 enemyBodyRatio * perEnemyBodyRatio.w，本机覆盖时取 override）
         const defaultHitW = debugParams.enemyBodyRatio * (debugParams.perEnemyBodyRatio[typeKey]?.w ?? 1);
         const defaultHitH = debugParams.enemyBodyRatio * (debugParams.perEnemyBodyRatio[typeKey]?.h ?? 1);
-        parent.appendChild(sliderRow(
+        sizeBody.appendChild(sliderRow(
             '命中宽 ratio',
             override.hitW ?? defaultHitW,
             0.1,
@@ -492,7 +499,7 @@ export class DebugPanel {
         ));
 
         // 命中高 ratio
-        parent.appendChild(sliderRow(
+        sizeBody.appendChild(sliderRow(
             '命中高 ratio',
             override.hitH ?? defaultHitH,
             0.1,
@@ -504,8 +511,10 @@ export class DebugPanel {
             }
         ));
 
-        // === 🎭 攻击模式（多重 Step Pattern）===
-        this.renderAttackPatternSection(parent, override, e);
+        // === 🎭 攻击模式（多重 Step Pattern，折叠）===
+        const patSec = collapsibleSection('🎭 攻击模式', 'pattern', false);
+        parent.appendChild(patSec.container);
+        this.renderAttackPatternSection(patSec.body, override, e);
 
         // 血条类型（4 选 1，首项"默认"按 tier 自动映射）
         const hbRow = document.createElement('div');
@@ -535,23 +544,23 @@ export class DebugPanel {
         hbRow.appendChild(hbSel);
         parent.appendChild(hbRow);
 
-        // F. 行为 tunable 动态滑条
+        // F. 行为 tunable 动态滑条（折叠）
         const tunables = e.behavior?.getTunables() ?? [];
         if (tunables.length > 0) {
-            parent.appendChild(sectionTitle('▷ 行为参数'));
+            const behSec = collapsibleSection('▷ 行为参数', 'behavior');
+            parent.appendChild(behSec.container);
             for (const td of tunables) {
-                parent.appendChild(sliderRow(td.label, td.get(), td.min, td.max, td.step, (v) => td.set(v)));
+                behSec.body.appendChild(sliderRow(td.label, td.get(), td.min, td.max, td.step, (v) => td.set(v)));
             }
         }
     }
 
     private renderAttackPatternSection(
-        parent: HTMLDivElement,
+        parent: HTMLElement,
         override: import('./debugParams.js').EnemyOverride,
         e: Enemy
     ): void {
-        parent.appendChild(sectionTitle('🎭 攻击模式'));
-
+        // 标题由外层 collapsibleSection 提供，这里不再加 sectionTitle
         // 启用复选框
         parent.appendChild(checkboxRow(
             '启用 Pattern',

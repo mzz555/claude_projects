@@ -125,6 +125,41 @@ export function sectionTitle(text: string): HTMLDivElement {
     return d;
 }
 
+const COLLAPSE_KEY_PREFIX = '__plane_dbg_collapse_';
+
+/**
+ * 可折叠 section（HTML details + summary，状态写 localStorage 跨 reload 保留）。
+ * 调用方把内容塞进返回的 body 元素，container 塞进 parent。
+ *
+ * key 用稳定字符串（weapon / telegraph / size / pattern / fx），同一 key 跨次 mount 状态一致。
+ * initialOpen 仅在 localStorage 无记录时生效。
+ */
+export function collapsibleSection(
+    title: string,
+    key: string,
+    initialOpen = true
+): { container: HTMLDetailsElement; body: HTMLDetailsElement } {
+    const details = document.createElement('details');
+    details.style.cssText = 'margin: 6px 0; padding: 0;';
+    const summary = document.createElement('summary');
+    summary.setAttribute('style', SECTION_TITLE + ' cursor: pointer; outline: none; list-style: none;');
+    // 用 ::-webkit-details-marker { display:none } 隐藏原生箭头；用 :before 加自定义箭头
+    // 这里直接在 textContent 用 ▶/▼ 字符更稳：兼容 firefox/chrome 一致
+    const updateLabel = (): void => {
+        summary.textContent = (details.open ? '▼ ' : '▶ ') + title;
+    };
+    const stored = localStorage.getItem(COLLAPSE_KEY_PREFIX + key);
+    details.open = stored != null ? stored === '1' : initialOpen;
+    updateLabel();
+    details.addEventListener('toggle', () => {
+        localStorage.setItem(COLLAPSE_KEY_PREFIX + key, details.open ? '1' : '0');
+        updateLabel();
+    });
+    details.appendChild(summary);
+    // body 直接用 details 本身：append 进来的内容自动只在 open=true 时显示
+    return { container: details, body: details };
+}
+
 export function button(text: string, onClick: () => void): HTMLButtonElement {
     const b = document.createElement('button');
     b.setAttribute('style', BTN);
