@@ -617,14 +617,18 @@ export class DebugPanel {
         const actionRow = document.createElement('div');
         actionRow.setAttribute('style', 'display: flex; gap: 4px; margin: 2px 0 6px 0;');
         actionRow.appendChild(button('➕ 新 Step', () => {
-            // 新 step 默认武器按 idx 循环（single/double/rapid/fan/barrage），
-            // 让"切武器"立即可见。用户仍可在 Step 武器 dropdown 改成"继承"或其他
+            // 新 step 默认武器 + 子弹都按 idx 循环：
+            //   武器：single → double → rapid → fan → barrage
+            //   子弹：small → teardrop → shrapnel → orb → heavy
+            // 让"切武器"和"切子弹"立即可见。用户仍可在对应 dropdown 改成"继承"
             const idx = pat.steps.length;
             const autoWeapon = ENEMY_WEAPON_KEYS[idx % ENEMY_WEAPON_KEYS.length]!;
+            const autoBullet = ENEMY_BULLET_KEYS[idx % ENEMY_BULLET_KEYS.length]!;
             pat.steps.push({
                 durationMs: 1500,
                 gapMs: 300,
-                weaponKey: autoWeapon
+                weaponKey: autoWeapon,
+                bulletTexture: autoBullet
             });
             override.attackPatternEditingIdx = idx;
             e.resetAttackPattern();
@@ -703,6 +707,33 @@ export class DebugPanel {
         wRow.appendChild(wLab);
         wRow.appendChild(wSel);
         parent.appendChild(wRow);
+
+        // Step 子弹 dropdown（第一项"继承"= undefined）
+        const bRow = document.createElement('div');
+        bRow.setAttribute('style', ROW);
+        const bLab = document.createElement('span');
+        bLab.style.cssText = 'width: 80px; font-size: 11px;';
+        bLab.textContent = 'Step 子弹';
+        const bSel = document.createElement('select');
+        bSel.style.cssText = 'flex: 1; background: #001; color: #fff; border: 1px solid #1a4a5a; padding: 2px;';
+        const bDef = document.createElement('option');
+        bDef.value = '';
+        bDef.textContent = `继承（${e.bulletTextureKey}）`;
+        bSel.appendChild(bDef);
+        for (const bk of ENEMY_BULLET_KEYS) {
+            const opt = document.createElement('option');
+            opt.value = bk;
+            opt.textContent = bk;
+            if (step.bulletTexture === bk) opt.selected = true;
+            bSel.appendChild(opt);
+        }
+        bSel.onchange = () => {
+            if (bSel.value === '') delete step.bulletTexture;
+            else step.bulletTexture = bSel.value as EnemyBulletTextureKey;
+        };
+        bRow.appendChild(bLab);
+        bRow.appendChild(bSel);
+        parent.appendChild(bRow);
 
         // 攻击间隔覆盖（复选框 + 滑条）
         const intvHasOverride = step.attackIntervalMs !== undefined;
