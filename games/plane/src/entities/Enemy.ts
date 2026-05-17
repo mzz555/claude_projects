@@ -35,9 +35,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     spawn(args: EnemySpawnArgs): void {
         const t = ENEMY_TYPES[args.typeKey];
         this.typeKey = args.typeKey;
-        this.hp = t.hp;
-        this.score = t.score;
-        this.dmg = t.dmg;
+        const override = debugParams.enemyOverrides[args.typeKey];
+        this.hp = override?.hp ?? t.hp;
+        this.score = override?.score ?? t.score;
+        this.dmg = override?.dmg ?? t.dmg;
         this.behaviorTime = 0;
         this.spawnX = args.x;
         this.sweepDir = Math.random() < 0.5 ? 1 : -1;
@@ -79,7 +80,6 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.setPosition(args.x, args.y);
         this.setVelocity(0, args.vy);
         // 优先用 debugParams.enemyOverrides[typeKey].behaviorId（测试场覆写），否则用 ENEMY_TYPES 默认
-        const override = debugParams.enemyOverrides[args.typeKey];
         const behaviorId = override?.behaviorId ?? t.behaviorId;
         this.behavior = BehaviorRegistry.instance.create(behaviorId);
         this.behavior?.init(this as never);
