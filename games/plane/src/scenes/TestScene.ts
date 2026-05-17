@@ -42,6 +42,7 @@ export class TestScene extends Phaser.Scene {
         this.events.once('shutdown', () => {
             window.removeEventListener('keydown', onDown);
             window.removeEventListener('keyup', onUp);
+            this.events.off(E.EnemyKilled);
         });
         const kbSource = { isKeyDown: (code: string): boolean => downKeys.has(code) };
         this.player = new Player(this, this.scale.width / 2, PLAY_AREA.y + PLAY_AREA.h - 80, kbSource);
