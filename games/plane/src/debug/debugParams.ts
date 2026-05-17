@@ -28,6 +28,7 @@ export interface BodyShape {
 
 export interface EnemyOverride {
     behaviorId?: string;
+    bulletTexture?: EnemyBulletTextureKey;
     hp?: number;
     score?: number;
     dmg?: number;

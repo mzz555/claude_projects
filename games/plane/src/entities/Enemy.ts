@@ -60,7 +60,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
             this.width > 0 && this.height > 0 ? this.height / this.width : t.h / t.w;
         const targetH = targetW * srcAspect;
         this.setDisplaySize(targetW, targetH);
-        this.bulletTextureKey = t.bulletTexture;
+        this.bulletTextureKey = override?.bulletTexture ?? t.bulletTexture;
         this.recomputeAlphaTightBody();
         this.setPosition(args.x, args.y);
         this.setVelocity(0, args.vy);
@@ -118,7 +118,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.setDisplaySize(targetW, targetH);
 
         // 子弹
-        this.bulletTextureKey = t.bulletTexture;
+        this.bulletTextureKey = override?.bulletTexture ?? t.bulletTexture;
 
         // 行为（沿用现有 setBehavior 复用）
         this.setBehavior(override?.behaviorId ?? t.behaviorId);
