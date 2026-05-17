@@ -42,6 +42,11 @@ export class TestScene extends Phaser.Scene {
         this.cameras.main.setBackgroundColor(PLANE_THEME.bg);
         this.physics.world.setBounds(PLAY_AREA.x, PLAY_AREA.y, PLAY_AREA.w, PLAY_AREA.h);
 
+        // 进入测试场强制重置时间相关状态，避免上次离开时残留
+        debugParams.paused = false;
+        debugParams.timeScale = 1.0;
+        this.physics.world.timeScale = 1.0;
+
         const downKeys = new Set<string>();
         const onDown = (e: KeyboardEvent): void => { downKeys.add(e.code); };
         const onUp = (e: KeyboardEvent): void => { downKeys.delete(e.code); };
@@ -227,12 +232,22 @@ export class TestScene extends Phaser.Scene {
         };
         const pauseBtn = mkBtn('⏸ 暂停', () => {
             debugParams.paused = !debugParams.paused;
+            // Phaser Arcade 物理引擎独立于 scene.update()，必须显式 pause/resume 才能停子弹/敌机的物理位移
+            if (debugParams.paused) this.physics.world.pause();
+            else this.physics.world.resume();
             pauseBtn.textContent = debugParams.paused ? '▶ 继续' : '⏸ 暂停';
         });
         bar.appendChild(pauseBtn);
 
-        bar.appendChild(mkBtn('🐢 慢放 ×0.25', () => (debugParams.timeScale = 0.25)));
-        bar.appendChild(mkBtn('🐇 正常 ×1', () => (debugParams.timeScale = 1.0)));
+        // Phaser 物理 timeScale 是分母：1=正常，4=慢4倍
+        bar.appendChild(mkBtn('🐢 慢放 ×0.25', () => {
+            debugParams.timeScale = 0.25;
+            this.physics.world.timeScale = 4.0;
+        }));
+        bar.appendChild(mkBtn('🐇 正常 ×1', () => {
+            debugParams.timeScale = 1.0;
+            this.physics.world.timeScale = 1.0;
+        }));
         bar.appendChild(mkBtn('🔄 重置全部', () => {
             this.enemies.children.iterate((obj) => {
                 (obj as Enemy).deactivate();
