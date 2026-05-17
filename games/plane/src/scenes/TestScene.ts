@@ -11,7 +11,6 @@ import { WeaponSystem, type ShotSpec } from '../systems/WeaponSystem.js';
 import { PRIMARY } from '../data/weapons.js';
 import { E } from '../events.js';
 import { DebugPanel } from '../debug/DebugPanel.js';
-import { EnemyInspector } from '../debug/EnemyInspector.js';
 
 interface FixedSlot {
     typeKey: EnemyTypeKey;
@@ -28,7 +27,6 @@ export class TestScene extends Phaser.Scene {
     private slots: FixedSlot[] = [];
     private respawnQueue: { slotIdx: number; dueAt: number }[] = [];
     private debugPanel: DebugPanel | null = null;
-    private inspector: EnemyInspector | null = null;
     private toolbar: HTMLDivElement | null = null;
     private trailGfx!: Phaser.GameObjects.Graphics;
     private trailHistory: Phaser.Math.Vector2[] = [];
@@ -57,10 +55,8 @@ export class TestScene extends Phaser.Scene {
             window.removeEventListener('keyup', onUp);
             this.events.off(E.EnemyKilled);
             this.debugPanel?.unmount();
-            this.inspector?.unmount();
             this.toolbar?.remove();
             this.debugPanel = null;
-            this.inspector = null;
             this.toolbar = null;
         });
         const kbSource = { isKeyDown: (code: string): boolean => downKeys.has(code) };
@@ -112,13 +108,13 @@ export class TestScene extends Phaser.Scene {
         // 调参 UI
         this.debugPanel = new DebugPanel();
         this.debugPanel.mount();
-        this.inspector = new EnemyInspector();
-        this.inspector.mount();
+        this.debugPanel.onSwapTypeKey = (i, k) => this.swapSlotTypeKey(i, k);
+        this.debugPanel.resolveSlotIdx = (x, y) => this.findSlotIndexByPos(x, y);
         this.toolbar = this.makeToolbar();
 
         // 敌机可点击：点击 → 选中
         this.input.on('gameobjectdown', (_pointer: unknown, obj: Phaser.GameObjects.GameObject) => {
-            if (obj instanceof Enemy) this.inspector?.select(obj);
+            if (obj instanceof Enemy) this.debugPanel?.selectEnemy(obj);
         });
         // 让每架现有敌机和将来 spawn 的敌机都可交互
         this.enemies.children.iterate((obj) => {
@@ -129,7 +125,7 @@ export class TestScene extends Phaser.Scene {
     }
 
     override update(_time: number, delta: number): void {
-        this.inspector?.tick();
+        this.debugPanel?.tick();
 
         // 暂停：DOM 面板仍可交互
         if (debugParams.paused) return;
