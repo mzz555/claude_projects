@@ -1,9 +1,22 @@
 import Phaser from 'phaser';
-import { ENEMY_TYPES, type EnemyTypeKey } from '../data/enemyTypes.js';
+import { ENEMY_TYPES, defaultHealthBarByTier, type EnemyTypeKey } from '../data/enemyTypes.js';
 import type { EnemyWeaponState } from '../systems/EnemyWeapon.js';
-import { debugParams } from '../debug/debugParams.js';
+import { debugParams, type HealthBarType } from '../debug/debugParams.js';
 import { getAlphaBounds } from '../debug/textureBounds.js';
 import { BehaviorRegistry, type IEnemyBehavior } from '../behaviors/index.js';
+
+interface HealthBarStyle {
+    w: number; h: number;
+    bg: number; fill: number;
+    border: number | null; borderWidth: number;
+}
+
+const HEALTH_BAR_STYLES: Record<HealthBarType, HealthBarStyle> = {
+    normal: { w: 24, h: 3, bg: 0x222222, fill: 0x6fbf6f, border: null, borderWidth: 0 },
+    elite:  { w: 30, h: 5, bg: 0x2a2300, fill: 0xffd700, border: 0xffaa00, borderWidth: 1 },
+    epic:   { w: 36, h: 6, bg: 0x2a004a, fill: 0xcc66ff, border: 0xaa44ff, borderWidth: 1 },
+    boss:   { w: 60, h: 9, bg: 0x000000, fill: 0xff2222, border: 0x660000, borderWidth: 2 }
+};
 
 export interface EnemySpawnArgs {
     x: number;
@@ -15,6 +28,7 @@ export interface EnemySpawnArgs {
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
     typeKey: EnemyTypeKey = 'scout';
     hp = 0;
+    maxHp = 0;
     score = 0;
     dmg = 0;
     behaviorTime = 0;
@@ -26,11 +40,16 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     weaponState: EnemyWeaponState = { cooldownMs: 0, burstRemaining: 0, burstNextMs: 0 };
     behavior: IEnemyBehavior | null = null;
     bulletTextureKey: string = '';
+    healthBarType: HealthBarType = 'normal';
+    private healthBarGfx: Phaser.GameObjects.Graphics;
 
     constructor(scene: Phaser.Scene, x: number, y: number) {
         super(scene, x, y, 'enemy-1');
         scene.add.existing(this);
         scene.physics.add.existing(this);
+        this.healthBarGfx = scene.add.graphics();
+        this.healthBarGfx.setDepth(100);
+        this.healthBarGfx.setVisible(false);
     }
 
     spawn(args: EnemySpawnArgs): void {
@@ -38,6 +57,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.typeKey = args.typeKey;
         const override = debugParams.enemyOverrides[args.typeKey];
         this.hp = override?.hp ?? t.hp;
+        this.maxHp = this.hp;
+        this.healthBarType = override?.healthBarType ?? defaultHealthBarByTier(t.tier);
         this.score = override?.score ?? t.score;
         this.dmg = override?.dmg ?? t.dmg;
         this.behaviorTime = 0;
@@ -106,6 +127,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
         // 数值（重置 hp 到新 typeKey 的默认满血）
         this.hp = override?.hp ?? t.hp;
+        this.maxHp = this.hp;
+        this.healthBarType = override?.healthBarType ?? defaultHealthBarByTier(t.tier);
         this.score = override?.score ?? t.score;
         this.dmg = override?.dmg ?? t.dmg;
 
@@ -133,6 +156,42 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.body!.enable = false;
         this.setVelocity(0, 0);
         this.behavior = null;
+        this.healthBarGfx.setVisible(false);
+    }
+
+    setHealthBarType(type: HealthBarType): void {
+        this.healthBarType = type;
+    }
+
+    /** 每帧由 scene update 调用，绘制头顶血条 */
+    updateHealthBar(): void {
+        if (!this.active) {
+            this.healthBarGfx.setVisible(false);
+            return;
+        }
+        this.healthBarGfx.setVisible(true);
+        const g = this.healthBarGfx;
+        g.clear();
+        const style = HEALTH_BAR_STYLES[this.healthBarType];
+        const w = style.w;
+        const h = style.h;
+        const x = this.x - w / 2;
+        const y = this.y - this.displayHeight / 2 - h - 6;
+        const ratio = this.maxHp > 0 ? Math.max(0, Math.min(1, this.hp / this.maxHp)) : 0;
+        g.fillStyle(style.bg, 1);
+        g.fillRect(x, y, w, h);
+        g.fillStyle(style.fill, 1);
+        g.fillRect(x, y, w * ratio, h);
+        if (style.border !== null) {
+            g.lineStyle(style.borderWidth, style.border, 1);
+            g.strokeRect(x, y, w, h);
+        }
+        // boss 装饰：左右尖角
+        if (this.healthBarType === 'boss' && style.border !== null) {
+            g.fillStyle(style.border, 1);
+            g.fillTriangle(x - 4, y, x, y, x, y + h);
+            g.fillTriangle(x + w + 4, y, x + w, y, x + w, y + h);
+        }
     }
 
     takeDamage(amount: number): boolean {

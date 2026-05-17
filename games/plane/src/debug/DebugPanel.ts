@@ -3,15 +3,18 @@ import {
     ENEMY_BULLET_KEYS,
     ENEMY_TYPE_KEYS,
     ENEMY_TYPE_LABELS,
+    HEALTH_BAR_TYPES,
+    HEALTH_BAR_LABELS,
     type EnemyBulletTextureKey,
-    type EnemyTypeKey
+    type EnemyTypeKey,
+    type HealthBarType
 } from './debugParams.js';
 import {
     STYLE, HEADER_STYLE, ROW,
     sliderRow, numberRow, checkboxRow, sectionTitle, button
 } from './widgets.js';
 import type { Enemy } from '../entities/Enemy.js';
-import { ENEMY_TYPES } from '../data/enemyTypes.js';
+import { ENEMY_TYPES, defaultHealthBarByTier } from '../data/enemyTypes.js';
 
 const BULLET_LABELS: Record<EnemyBulletTextureKey, string> = {
     'enemy-bullet-small': 'small（侦察/战斗）',
@@ -295,6 +298,34 @@ export class DebugPanel {
         bulRow.appendChild(bulLab);
         bulRow.appendChild(bulSel);
         parent.appendChild(bulRow);
+
+        // 血条类型（4 选 1，首项"默认"按 tier 自动映射）
+        const hbRow = document.createElement('div');
+        hbRow.setAttribute('style', ROW);
+        const hbLab = document.createElement('span');
+        hbLab.style.cssText = 'width: 80px; font-size: 11px;';
+        hbLab.textContent = '血条类型';
+        const hbSel = document.createElement('select');
+        hbSel.style.cssText = 'flex: 1; background: #001; color: #fff; border: 1px solid #1a4a5a; padding: 2px;';
+        const hbDef = document.createElement('option');
+        hbDef.value = '';
+        hbDef.textContent = `默认（${HEALTH_BAR_LABELS[defaultHealthBarByTier(t.tier)]}）`;
+        hbSel.appendChild(hbDef);
+        for (const ht of HEALTH_BAR_TYPES) {
+            const opt = document.createElement('option');
+            opt.value = ht;
+            opt.textContent = HEALTH_BAR_LABELS[ht];
+            if (override.healthBarType === ht) opt.selected = true;
+            hbSel.appendChild(opt);
+        }
+        hbSel.onchange = () => {
+            if (hbSel.value === '') delete override.healthBarType;
+            else override.healthBarType = hbSel.value as HealthBarType;
+            e.setHealthBarType(override.healthBarType ?? defaultHealthBarByTier(t.tier));
+        };
+        hbRow.appendChild(hbLab);
+        hbRow.appendChild(hbSel);
+        parent.appendChild(hbRow);
 
         // F. 行为 tunable 动态滑条
         const tunables = e.behavior?.getTunables() ?? [];

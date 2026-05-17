@@ -277,6 +277,7 @@ export class PlayScene extends Phaser.Scene {
             const e = obj as Enemy;
             if (!e.active) return null;
             e.behavior?.update(delta, pX);
+            e.updateHealthBar();
             if (!e.confronting && shouldConfront(e.typeKey, e.y, this.player.y)) {
                 e.confronting = true;
             }

@@ -19,6 +19,17 @@ export type EnemyTypeKey =
     | 'bomber'
     | 'carrier';
 
+export type HealthBarType = 'normal' | 'elite' | 'epic' | 'boss';
+
+export const HEALTH_BAR_TYPES: HealthBarType[] = ['normal', 'elite', 'epic', 'boss'];
+
+export const HEALTH_BAR_LABELS: Record<HealthBarType, string> = {
+    normal: '普通',
+    elite: '精英',
+    epic: '史诗',
+    boss: 'Boss'
+};
+
 export interface BodyShape {
     /** 宽方向比例（1.0 = 紧贴 alpha 包围盒宽） */
     w: number;
@@ -29,6 +40,7 @@ export interface BodyShape {
 export interface EnemyOverride {
     behaviorId?: string;
     bulletTexture?: EnemyBulletTextureKey;
+    healthBarType?: HealthBarType;
     hp?: number;
     score?: number;
     dmg?: number;

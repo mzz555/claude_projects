@@ -1,3 +1,5 @@
+import type { HealthBarType } from '../debug/debugParams.js';
+
 export type EnemyTypeKey =
     | 'scout'
     | 'fighter'
@@ -6,6 +8,13 @@ export type EnemyTypeKey =
     | 'cruiser'
     | 'bomber'
     | 'carrier';
+
+/** 按 tier 映射默认血条类型 — tier 1-2 普通、3 精英、4 史诗、boss 仅手动 override */
+export function defaultHealthBarByTier(tier: 1 | 2 | 3 | 4): HealthBarType {
+    if (tier <= 2) return 'normal';
+    if (tier === 3) return 'elite';
+    return 'epic';
+}
 
 export interface EnemyType {
     label: string;

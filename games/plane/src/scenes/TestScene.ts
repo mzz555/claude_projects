@@ -133,6 +133,7 @@ export class TestScene extends Phaser.Scene {
             const e = obj as Enemy;
             if (!e.active) return null;
             e.behavior?.update(dt, this.player.x);
+            e.updateHealthBar();
 
             // 敌机开火（测试场固定在屏内，PlayScene 的"进入屏幕后才开"条件天然满足）
             const wkey = ENEMY_WEAPON_MAP[e.typeKey];
