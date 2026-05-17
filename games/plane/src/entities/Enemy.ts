@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ENEMY_TYPES, defaultHealthBarByTier, type EnemyTypeKey } from '../data/enemyTypes.js';
 import type { EnemyWeaponState } from '../systems/EnemyWeapon.js';
+import { ENEMY_WEAPON_MAP, type EnemyWeaponKey } from '../data/enemyWeapons.js';
 import { debugParams, type HealthBarType } from '../debug/debugParams.js';
 import { getAlphaBounds } from '../debug/textureBounds.js';
 import { BehaviorRegistry, type IEnemyBehavior } from '../behaviors/index.js';
@@ -38,6 +39,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     fieldTimer = 0;
     spawnTimer = 0;
     weaponState: EnemyWeaponState = { cooldownMs: 0, burstRemaining: 0, burstNextMs: 0 };
+    weaponKey: EnemyWeaponKey = 'single';
     behavior: IEnemyBehavior | null = null;
     bulletTextureKey: string = '';
     healthBarType: HealthBarType = 'normal';
@@ -82,6 +84,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         const targetH = targetW * srcAspect;
         this.setDisplaySize(targetW, targetH);
         this.bulletTextureKey = override?.bulletTexture ?? t.bulletTexture;
+        this.weaponKey = (override?.weaponKey as EnemyWeaponKey | undefined)
+            ?? ENEMY_WEAPON_MAP[args.typeKey]
+            ?? 'single';
         this.recomputeAlphaTightBody();
         this.setPosition(args.x, args.y);
         this.setVelocity(0, args.vy);
@@ -120,6 +125,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.bulletTextureKey = key;
     }
 
+    setWeapon(key: EnemyWeaponKey): void {
+        this.weaponKey = key;
+        // 切武器时清状态，避免 burst 串扰
+        this.weaponState = { cooldownMs: 0, burstRemaining: 0, burstNextMs: 0 };
+    }
+
     setTypeKey(newKey: EnemyTypeKey): void {
         this.typeKey = newKey;
         const t = ENEMY_TYPES[newKey];
@@ -142,6 +153,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
         // 子弹
         this.bulletTextureKey = override?.bulletTexture ?? t.bulletTexture;
+
+        // 发射方式
+        this.weaponKey = (override?.weaponKey as EnemyWeaponKey | undefined)
+            ?? ENEMY_WEAPON_MAP[newKey]
+            ?? 'single';
+        // 切武器时清状态，避免上一种武器的 burst 状态串扰
+        this.weaponState = { cooldownMs: 0, burstRemaining: 0, burstNextMs: 0 };
 
         // 行为（沿用现有 setBehavior 复用）
         this.setBehavior(override?.behaviorId ?? t.behaviorId);

@@ -15,7 +15,6 @@ import { MeteorDirector, METEOR_DROP_RATE } from '../systems/MeteorDirector.js';
 import { FxSystem } from '../systems/FxSystem.js';
 import { MarbleSpawner } from '../systems/MarbleSpawner.js';
 import { MarblePanel } from '../entities/MarblePanel.js';
-import { ENEMY_WEAPON_MAP } from '../data/enemyWeapons.js';
 import { SFX } from '../data/sfxKeys.js';
 import { SfxBank } from '../audio/sfxBank.js';
 import {
@@ -299,7 +298,7 @@ export class PlayScene extends Phaser.Scene {
             }
             // 敌机开火（进入屏幕后才开）
             if (e.y > PLAY_AREA.y) {
-                const wkey = ENEMY_WEAPON_MAP[e.typeKey];
+                const wkey = e.weaponKey;
                 if (wkey) {
                     const shots = updateEnemyWeapon(
                         e.weaponState,

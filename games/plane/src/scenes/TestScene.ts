@@ -8,7 +8,6 @@ import { type EnemyTypeKey, debugParams } from '../debug/debugParams.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { WeaponSystem, type ShotSpec } from '../systems/WeaponSystem.js';
 import { updateEnemyWeapon } from '../systems/EnemyWeapon.js';
-import { ENEMY_WEAPON_MAP } from '../data/enemyWeapons.js';
 import { PRIMARY } from '../data/weapons.js';
 import { E } from '../events.js';
 import { DebugPanel } from '../debug/DebugPanel.js';
@@ -151,7 +150,7 @@ export class TestScene extends Phaser.Scene {
             e.updateHealthBar();
 
             // 敌机开火（测试场固定在屏内，PlayScene 的"进入屏幕后才开"条件天然满足）
-            const wkey = ENEMY_WEAPON_MAP[e.typeKey];
+            const wkey = e.weaponKey;
             if (wkey) {
                 const shots = updateEnemyWeapon(
                     e.weaponState,

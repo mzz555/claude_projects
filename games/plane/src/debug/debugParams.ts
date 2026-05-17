@@ -40,6 +40,8 @@ export interface BodyShape {
 export interface EnemyOverride {
     behaviorId?: string;
     bulletTexture?: EnemyBulletTextureKey;
+    /** 发射方式 key（来自 enemyWeapons.ts），用 string 避免循环 import */
+    weaponKey?: string;
     healthBarType?: HealthBarType;
     hp?: number;
     score?: number;

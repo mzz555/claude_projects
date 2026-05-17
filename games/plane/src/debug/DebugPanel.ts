@@ -15,6 +15,12 @@ import {
 } from './widgets.js';
 import type { Enemy } from '../entities/Enemy.js';
 import { ENEMY_TYPES, defaultHealthBarByTier } from '../data/enemyTypes.js';
+import {
+    ENEMY_WEAPON_KEYS,
+    ENEMY_WEAPON_LABELS,
+    ENEMY_WEAPON_MAP,
+    type EnemyWeaponKey
+} from '../data/enemyWeapons.js';
 
 const BULLET_LABELS: Record<EnemyBulletTextureKey, string> = {
     'enemy-bullet-small': 'small（侦察/战斗）',
@@ -231,6 +237,38 @@ export class DebugPanel {
         behRow.appendChild(behLab);
         behRow.appendChild(behSel);
         parent.appendChild(behRow);
+
+        // === 🔫 武器子区（发射方式 + 子弹外观）===
+        parent.appendChild(sectionTitle('🔫 武器'));
+
+        // 发射方式（5 选 1，首项"默认"按 ENEMY_WEAPON_MAP 走）
+        const defWeap: EnemyWeaponKey = ENEMY_WEAPON_MAP[typeKey] ?? 'single';
+        const weapRow = document.createElement('div');
+        weapRow.setAttribute('style', ROW);
+        const weapLab = document.createElement('span');
+        weapLab.style.cssText = 'width: 80px; font-size: 11px;';
+        weapLab.textContent = '发射方式';
+        const weapSel = document.createElement('select');
+        weapSel.style.cssText = 'flex: 1; background: #001; color: #fff; border: 1px solid #1a4a5a; padding: 2px;';
+        const weapDef = document.createElement('option');
+        weapDef.value = '';
+        weapDef.textContent = `默认（${ENEMY_WEAPON_LABELS[defWeap]}）`;
+        weapSel.appendChild(weapDef);
+        for (const wk of ENEMY_WEAPON_KEYS) {
+            const opt = document.createElement('option');
+            opt.value = wk;
+            opt.textContent = ENEMY_WEAPON_LABELS[wk];
+            if (override.weaponKey === wk) opt.selected = true;
+            weapSel.appendChild(opt);
+        }
+        weapSel.onchange = () => {
+            if (weapSel.value === '') delete override.weaponKey;
+            else override.weaponKey = weapSel.value;
+            e.setWeapon((override.weaponKey as EnemyWeaponKey | undefined) ?? defWeap);
+        };
+        weapRow.appendChild(weapLab);
+        weapRow.appendChild(weapSel);
+        parent.appendChild(weapRow);
 
         // 子弹覆盖
         const bulRow = document.createElement('div');
