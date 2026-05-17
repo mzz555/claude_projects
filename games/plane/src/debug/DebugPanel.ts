@@ -617,8 +617,16 @@ export class DebugPanel {
         const actionRow = document.createElement('div');
         actionRow.setAttribute('style', 'display: flex; gap: 4px; margin: 2px 0 6px 0;');
         actionRow.appendChild(button('➕ 新 Step', () => {
-            pat.steps.push({ durationMs: 1500, gapMs: 300 });
-            override.attackPatternEditingIdx = pat.steps.length - 1;
+            // 新 step 默认武器按 idx 循环（single/double/rapid/fan/barrage），
+            // 让"切武器"立即可见。用户仍可在 Step 武器 dropdown 改成"继承"或其他
+            const idx = pat.steps.length;
+            const autoWeapon = ENEMY_WEAPON_KEYS[idx % ENEMY_WEAPON_KEYS.length]!;
+            pat.steps.push({
+                durationMs: 1500,
+                gapMs: 300,
+                weaponKey: autoWeapon
+            });
+            override.attackPatternEditingIdx = idx;
             e.resetAttackPattern();
             this.render();
         }));
