@@ -191,6 +191,19 @@ export class TestScene extends Phaser.Scene {
         e.setInteractive();
     }
 
+    swapSlotTypeKey(slotIdx: number, newKey: EnemyTypeKey): void {
+        const slot = this.slots[slotIdx];
+        if (!slot) return;
+        slot.typeKey = newKey;
+        this.enemies.children.iterate((obj) => {
+            const e = obj as Enemy;
+            if (!e.active) return null;
+            const idx = this.findSlotIndexByPos(e.x, e.y);
+            if (idx === slotIdx) e.setTypeKey(newKey);
+            return null;
+        });
+    }
+
     private findSlotIndexByPos(x: number, y: number): number {
         // 半径 80px 内
         for (let i = 0; i < this.slots.length; i++) {
