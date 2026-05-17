@@ -47,7 +47,14 @@ export class TestScene extends Phaser.Scene {
         this.physics.world.timeScale = 1.0;
 
         const downKeys = new Set<string>();
-        const onDown = (e: KeyboardEvent): void => { downKeys.add(e.code); };
+        const onDown = (e: KeyboardEvent): void => {
+            downKeys.add(e.code);
+            if (e.code === 'F1') {
+                e.preventDefault();
+                debugParams.showHitbox = !debugParams.showHitbox;
+                this.debugPanel?.render();
+            }
+        };
         const onUp = (e: KeyboardEvent): void => { downKeys.delete(e.code); };
         window.addEventListener('keydown', onDown);
         window.addEventListener('keyup', onUp);
@@ -120,6 +127,14 @@ export class TestScene extends Phaser.Scene {
 
     override update(_time: number, delta: number): void {
         this.debugPanel?.tick();
+
+        // 同步命中框可视化（F1 / checkbox 切换 → physics 引擎）
+        const world = this.physics.world;
+        if (debugParams.showHitbox && !world.debugGraphic) {
+            world.createDebugGraphic();
+        }
+        world.drawDebug = debugParams.showHitbox;
+        if (world.debugGraphic) world.debugGraphic.setVisible(debugParams.showHitbox);
 
         // 暂停：DOM 面板仍可交互
         if (debugParams.paused) return;

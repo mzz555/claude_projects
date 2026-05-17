@@ -75,7 +75,7 @@ export class DebugPanel {
         live.textContent = `x=${e.x.toFixed(0)} y=${e.y.toFixed(0)} hp=${e.hp} v=(${vx.toFixed(0)},${vy.toFixed(0)})`;
     }
 
-    private render(): void {
+    render(): void {
         if (!this.root) return;
         const r = this.root;
         r.innerHTML = '';
@@ -98,46 +98,7 @@ export class DebugPanel {
             this.renderSelectedEnemySection(r);
         }
 
-        // === 敌机 ===
-        r.appendChild(sectionTitle('敌机'));
-
-        r.appendChild(
-            sliderRow(
-                '贴图缩放',
-                debugParams.enemyDisplayScale,
-                1,
-                8,
-                0.25,
-                (v) => (debugParams.enemyDisplayScale = v)
-            )
-        );
-        r.appendChild(
-            sliderRow(
-                '全局 hitbox',
-                debugParams.enemyBodyRatio,
-                0.2,
-                1.5,
-                0.05,
-                (v) => (debugParams.enemyBodyRatio = v)
-            )
-        );
-
-        // === 每机微调（形状）===
-        r.appendChild(sectionTitle('每机 hitbox 形状（W × H，叠乘到全局）'));
-
-        for (const typeKey of ENEMY_TYPE_KEYS) {
-            r.appendChild(this.perEnemyShapeRow(typeKey));
-        }
-
-        // === 子弹 ===
-        r.appendChild(sectionTitle('子弹尺寸（W × H）'));
-
-        for (const key of ENEMY_BULLET_KEYS) {
-            r.appendChild(this.bulletSizeRow(key));
-        }
-
-        // === 开关 ===
-        r.appendChild(sectionTitle('可视化'));
+        // 显示命中框（F1 也可切）
         r.appendChild(checkboxRow('显示命中框（F1）', debugParams.showHitbox, (v) => (debugParams.showHitbox = v)));
 
         // === 操作 ===
