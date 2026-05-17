@@ -45,6 +45,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     bulletAim: BulletAimMode = 'aim';
     /** 攻击间隔覆盖（ms）。null 时用 weaponKey 默认 */
     attackIntervalMs: number | null = null;
+    /** 子弹速度覆盖（px/s）。null 时用 weaponKey 默认 */
+    bulletSpeed: number | null = null;
     healthBarType: HealthBarType = 'normal';
     private healthBarGfx: Phaser.GameObjects.Graphics;
 
@@ -92,6 +94,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
             ?? 'single';
         this.bulletAim = override?.bulletAim ?? 'aim';
         this.attackIntervalMs = override?.attackIntervalMs ?? null;
+        this.bulletSpeed = override?.bulletSpeed ?? null;
         this.recomputeAlphaTightBody();
         this.setPosition(args.x, args.y);
         this.setVelocity(0, args.vy);
@@ -146,6 +149,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.weaponState = { cooldownMs: 0, burstRemaining: 0, burstNextMs: 0 };
     }
 
+    setBulletSpeed(speed: number | null): void {
+        this.bulletSpeed = speed;
+        // 子弹速度只影响新发射的子弹，已在场的不变；无需清 weaponState
+    }
+
     setTypeKey(newKey: EnemyTypeKey): void {
         this.typeKey = newKey;
         const t = ENEMY_TYPES[newKey];
@@ -181,6 +189,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
         // 攻击间隔
         this.attackIntervalMs = override?.attackIntervalMs ?? null;
+
+        // 子弹速度
+        this.bulletSpeed = override?.bulletSpeed ?? null;
 
         // 行为（沿用现有 setBehavior 复用）
         this.setBehavior(override?.behaviorId ?? t.behaviorId);

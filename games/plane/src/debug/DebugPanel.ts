@@ -344,6 +344,20 @@ export class DebugPanel {
             }
         ));
 
+        // 子弹速度 px/s（覆盖 weaponKey 默认 bulletSpeed；越大越快）
+        const curWeaponSpeed = ENEMY_WEAPONS[e.weaponKey].bulletSpeed;
+        parent.appendChild(sliderRow(
+            '子弹速度',
+            override.bulletSpeed ?? curWeaponSpeed,
+            50,
+            1500,
+            10,
+            (v) => {
+                override.bulletSpeed = v;
+                e.setBulletSpeed(v);
+            }
+        ));
+
         // 血条类型（4 选 1，首项"默认"按 tier 自动映射）
         const hbRow = document.createElement('div');
         hbRow.setAttribute('style', ROW);

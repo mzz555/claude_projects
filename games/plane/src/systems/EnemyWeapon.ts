@@ -71,10 +71,12 @@ export function updateEnemyWeapon(
     ctx: EnemyWeaponCtx,
     dtMs: number,
     key: EnemyWeaponKey,
-    overrideIntervalMs?: number
+    overrideIntervalMs?: number,
+    overrideBulletSpeed?: number
 ): EnemyShotSpec[] {
     const w = ENEMY_WEAPONS[key];
     const intervalMs = overrideIntervalMs ?? w.intervalMs;
+    const bulletSpeed = overrideBulletSpeed ?? w.bulletSpeed;
     state.cooldownMs -= dtMs;
 
     if (w.burstSize > 1) {
@@ -92,7 +94,7 @@ export function updateEnemyWeapon(
                     ctx,
                     1,
                     0,
-                    w.bulletSpeed,
+                    bulletSpeed,
                     Math.max(1, Math.floor(w.damageMultiplier)),
                     w.color
                 );
@@ -107,7 +109,7 @@ export function updateEnemyWeapon(
             ctx,
             w.pelletsPerShot,
             w.spreadRad,
-            w.bulletSpeed,
+            bulletSpeed,
             Math.max(1, Math.floor(w.damageMultiplier)),
             w.color
         );

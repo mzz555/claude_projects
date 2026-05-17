@@ -54,6 +54,8 @@ export interface EnemyOverride {
     bulletAim?: BulletAimMode;
     /** 覆盖攻击间隔（ms），null/undefined 时用 weaponKey 默认 */
     attackIntervalMs?: number;
+    /** 覆盖子弹速度（px/s），null/undefined 时用 weaponKey 默认 */
+    bulletSpeed?: number;
     healthBarType?: HealthBarType;
     hp?: number;
     score?: number;
