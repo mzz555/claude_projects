@@ -55,7 +55,7 @@ export class CollisionSystem {
             const enemy = b as Enemy;
             if (!enemy.active) return;
             if (!player.isShielded()) {
-                scene.events.emit(E.PlayerHit, { damage: enemy.dmg });
+                scene.events.emit(E.PlayerHit, { damage: enemy.dmg, x: player.x, y: player.y });
             }
             enemy.deactivate();
         });
@@ -64,7 +64,7 @@ export class CollisionSystem {
             const meteor = m as Meteor;
             if (!meteor.active) return;
             if (!player.isShielded()) {
-                scene.events.emit(E.PlayerHit, { damage: METEOR_DAMAGE });
+                scene.events.emit(E.PlayerHit, { damage: METEOR_DAMAGE, x: player.x, y: player.y });
             }
             meteor.deactivate();
         });

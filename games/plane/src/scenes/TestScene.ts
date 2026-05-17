@@ -8,6 +8,7 @@ import { type EnemyTypeKey, debugParams } from '../debug/debugParams.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { WeaponSystem, type ShotSpec } from '../systems/WeaponSystem.js';
 import { updateEnemyWeapon } from '../systems/EnemyWeapon.js';
+import { FxSystem } from '../systems/FxSystem.js';
 import { PRIMARY } from '../data/weapons.js';
 import { E } from '../events.js';
 import { DebugPanel } from '../debug/DebugPanel.js';
@@ -91,12 +92,20 @@ export class TestScene extends Phaser.Scene {
             onPowerupPicked: () => {}
         });
 
-        // 玩家被敌机子弹击中：子弹失效（测试场不发 PlayerHit 事件，避免误结算）
+        // 玩家被敌机子弹击中：子弹失效 + 发 PlayerHit（不扣血，但让 FxSystem 演特效）
         this.physics.add.overlap(this.player, this.enemyBullets, (_p, b) => {
             const bullet = b as EnemyBullet;
             if (!bullet.active) return;
             bullet.deactivate();
+            this.events.emit(E.PlayerHit, {
+                damage: 0,
+                x: this.player.x,
+                y: this.player.y
+            });
         });
+
+        // 测试场也加 FxSystem（看升级版特效）
+        new FxSystem(this);
 
         // 监听 EnemyKilled → 排入 1 秒后复活（1 对 1 模式恒为 slot 0）
         this.events.on(E.EnemyKilled, () => {

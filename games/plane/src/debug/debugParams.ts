@@ -103,6 +103,10 @@ export interface DebugParams {
     paused: boolean;
     /** 时间缩放（1.0 正常，0.25 慢放） */
     timeScale: number;
+    /** 启用粒子特效（M6-fix16 升级版 FxSystem） */
+    fxEnabled: boolean;
+    /** 特效强度倍率（同时缩放粒子数量和 scale） */
+    fxIntensity: number;
 }
 
 export const debugParams: DebugParams = {
@@ -128,7 +132,9 @@ export const debugParams: DebugParams = {
     enemyOverrides: {},
     selectedEnemyTypeKey: null,
     paused: false,
-    timeScale: 1.0
+    timeScale: 1.0,
+    fxEnabled: true,
+    fxIntensity: 1.0
 };
 
 export const ENEMY_TYPE_KEYS: EnemyTypeKey[] = [

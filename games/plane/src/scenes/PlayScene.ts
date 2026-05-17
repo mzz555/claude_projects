@@ -147,7 +147,11 @@ export class PlayScene extends Phaser.Scene {
             if (!bullet.active) return;
             bullet.deactivate();
             if (!this.player.isShielded()) {
-                this.events.emit(E.PlayerHit, { damage: bullet.damage });
+                this.events.emit(E.PlayerHit, {
+                    damage: bullet.damage,
+                    x: this.player.x,
+                    y: this.player.y
+                });
             }
         });
 
@@ -207,7 +211,7 @@ export class PlayScene extends Phaser.Scene {
             }
         );
 
-        this.events.on(E.PlayerHit, (p: { damage: number }) => {
+        this.events.on(E.PlayerHit, (p: { damage: number; x: number; y: number }) => {
             this.player.hp = Math.max(0, this.player.hp - p.damage);
             this.refreshHud();
             if (this.player.hp <= 0) {
@@ -423,7 +427,11 @@ export class PlayScene extends Phaser.Scene {
         this.fields.push(field);
         this.physics.add.overlap(this.player, field, () => {
             if (this.player.isShielded()) return;
-            this.events.emit(E.PlayerHit, { damage: field.getData('damage') as number });
+            this.events.emit(E.PlayerHit, {
+                damage: field.getData('damage') as number,
+                x: this.player.x,
+                y: this.player.y
+            });
         });
     }
 

@@ -114,6 +114,18 @@ export class DebugPanel {
         // 显示命中框（F1 也可切）
         r.appendChild(checkboxRow('显示命中框（F1）', debugParams.showHitbox, (v) => (debugParams.showHitbox = v)));
 
+        // === 🎆 特效（全局开关）===
+        r.appendChild(sectionTitle('🎆 特效'));
+        r.appendChild(checkboxRow('启用粒子特效', debugParams.fxEnabled, (v) => (debugParams.fxEnabled = v)));
+        r.appendChild(sliderRow(
+            '特效强度',
+            debugParams.fxIntensity,
+            0.3,
+            3.0,
+            0.1,
+            (v) => (debugParams.fxIntensity = v)
+        ));
+
         // === 操作 ===
         const actions = document.createElement('div');
         actions.setAttribute('style', 'margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap;');

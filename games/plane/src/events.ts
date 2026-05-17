@@ -16,7 +16,7 @@ export type EventName = (typeof E)[keyof typeof E];
 export interface EventPayloads {
     [E.EnemyKilled]: { enemyType: string; score: number; x: number; y: number };
     [E.EnemyHit]: { x: number; y: number };
-    [E.PlayerHit]: { damage: number };
+    [E.PlayerHit]: { damage: number; x: number; y: number };
     [E.PlayerFire]: { weaponLevel: number };
     [E.PowerupTaken]: { kind: string };
     [E.WeaponChanged]: { level: number };
