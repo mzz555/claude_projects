@@ -4,12 +4,15 @@ import { Enemy, makeEnemyPool } from '../entities/Enemy.js';
 import { Player } from '../entities/Player.js';
 import { Bullet, makeBulletPool } from '../entities/Bullet.js';
 import { EnemyBullet, makeEnemyBulletPool } from '../entities/EnemyBullet.js';
+import { Powerup, makePowerupPool } from '../entities/Powerup.js';
 import { type EnemyTypeKey, debugParams } from '../debug/debugParams.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { WeaponSystem, type ShotSpec } from '../systems/WeaponSystem.js';
 import { updateEnemyWeapon } from '../systems/EnemyWeapon.js';
 import { FxSystem } from '../systems/FxSystem.js';
-import { PRIMARY } from '../data/weapons.js';
+import { applyEffect } from '../systems/PowerupSystem.js';
+import { PRIMARY, WEAPONS } from '../data/weapons.js';
+import { type PowerupKey } from '../data/powerups.js';
 import { E } from '../events.js';
 import { DebugPanel } from '../debug/DebugPanel.js';
 
@@ -19,11 +22,30 @@ interface FixedSlot {
     y: number;
 }
 
+interface PowerupLayoutItem {
+    key: PowerupKey;
+    x: number;
+    y: number;
+}
+
+/** 测试场固定 powerup 位置（5 个，横向一排靠下，玩家上方 ~120px） */
+const POWERUP_LAYOUT: PowerupLayoutItem[] = [
+    { key: 'power',  x: PLAY_AREA.x + PLAY_AREA.w * 0.10, y: PLAY_AREA.y + PLAY_AREA.h - 200 },
+    { key: 'shield', x: PLAY_AREA.x + PLAY_AREA.w * 0.30, y: PLAY_AREA.y + PLAY_AREA.h - 200 },
+    { key: 'ally',   x: PLAY_AREA.x + PLAY_AREA.w * 0.50, y: PLAY_AREA.y + PLAY_AREA.h - 200 },
+    { key: 'hp',     x: PLAY_AREA.x + PLAY_AREA.w * 0.70, y: PLAY_AREA.y + PLAY_AREA.h - 200 },
+    { key: 'speed',  x: PLAY_AREA.x + PLAY_AREA.w * 0.90, y: PLAY_AREA.y + PLAY_AREA.h - 200 }
+];
+
+const POWERUP_RESPAWN_MS = 2000;
+
 export class TestScene extends Phaser.Scene {
     private player!: Player;
     private bullets!: Phaser.Physics.Arcade.Group;
     private enemies!: Phaser.Physics.Arcade.Group;
     private enemyBullets!: Phaser.Physics.Arcade.Group;
+    private powerups!: Phaser.Physics.Arcade.Group;
+    private powerupRespawnQueue: { layoutIdx: number; dueAt: number }[] = [];
     private weapon = new WeaponSystem();
     private slots: FixedSlot[] = [];
     private respawnQueue: { slotIdx: number; dueAt: number }[] = [];
@@ -73,6 +95,7 @@ export class TestScene extends Phaser.Scene {
         this.bullets = makeBulletPool(this, 256);
         this.enemies = makeEnemyPool(this, 16);
         this.enemyBullets = makeEnemyBulletPool(this, 128);
+        this.powerups = makePowerupPool(this, POWERUP_LAYOUT.length);
 
         // 1 对 1 模式：场上只有 1 架敌机，类型完全由调参面板"敌机类别"下拉控制
         this.slots.push({
@@ -87,10 +110,13 @@ export class TestScene extends Phaser.Scene {
             player: this.player,
             enemies: this.enemies,
             bullets: this.bullets,
-            powerups: this.physics.add.group(),  // 测试场不用 powerup
+            powerups: this.powerups,
             meteors: this.physics.add.group(),
-            onPowerupPicked: () => {}
+            onPowerupPicked: (key) => this.handlePowerupPicked(key)
         });
+
+        // spawn 5 个固定位置 powerup
+        for (let i = 0; i < POWERUP_LAYOUT.length; i++) this.spawnFixedPowerup(i);
 
         // 玩家被敌机子弹击中：子弹失效 + 发 PlayerHit（不扣血，但让 FxSystem 演特效）
         this.physics.add.overlap(this.player, this.enemyBullets, (_p, b) => {
@@ -194,11 +220,25 @@ export class TestScene extends Phaser.Scene {
             return null;
         });
 
+        // 玩家子弹超出屏幕回收（M6-fix17 修复：之前漏了这段，导致 32s 后子弹池耗尽，玩家停射）
+        this.bullets.children.iterate((b) => {
+            (b as Bullet).recycleIfOffscreen(PLAY_AREA.y);
+            return null;
+        });
+
         // 复活
         const now = this.time.now;
         while (this.respawnQueue.length > 0 && this.respawnQueue[0]!.dueAt <= now) {
             const { slotIdx } = this.respawnQueue.shift()!;
             this.spawnSlot(slotIdx);
+        }
+
+        // powerup 复活
+        for (let i = this.powerupRespawnQueue.length - 1; i >= 0; i--) {
+            if (this.powerupRespawnQueue[i]!.dueAt <= now) {
+                const { layoutIdx } = this.powerupRespawnQueue.splice(i, 1)[0]!;
+                this.spawnFixedPowerup(layoutIdx);
+            }
         }
 
         // 轨迹可视化
@@ -251,6 +291,45 @@ export class TestScene extends Phaser.Scene {
             if (e.active) e.setTypeKey(newKey);
             return null;
         });
+    }
+
+    /** 在固定位置生成 powerup（静止悬浮，不下落） */
+    private spawnFixedPowerup(idx: number): void {
+        const item = POWERUP_LAYOUT[idx];
+        if (!item) return;
+        const p = this.powerups.get() as Powerup | null;
+        if (!p) return;
+        const args: { x: number; y: number; key: PowerupKey; nextLevel?: number } = {
+            x: item.x, y: item.y, key: item.key
+        };
+        if (item.key === 'power') {
+            const lvl = this.weapon.getLevel();
+            args.nextLevel = lvl >= WEAPONS.length - 1 ? 6 : lvl + 1;
+        }
+        p.spawn(args);
+        p.setVelocity(0, 0);  // 覆盖 Powerup.spawn 内的 vy=80，让它静止悬浮
+    }
+
+    /** 测试场拾取处理：调 applyEffect 真升级 + 排入 2 秒复活队列 */
+    private handlePowerupPicked(key: PowerupKey): void {
+        applyEffect(key, {
+            weapon: {
+                getLevel: () => this.weapon.getLevel(),
+                setLevel: (lvl) => this.weapon.setLevel(lvl),
+                enterOverdrive: () => this.weapon.enterOverdrive(),
+                maxLevel: WEAPONS.length - 1
+            },
+            player: {
+                activateShield: (ms) => this.player.activateShield(ms),
+                heal: (n) => this.player.heal(n),
+                activateSpeedBoost: (ms) => this.player.activateSpeedBoost(ms)
+            },
+            addAllyCharge: () => {}  // 测试场无 allySystem，noop
+        });
+        const layoutIdx = POWERUP_LAYOUT.findIndex((it) => it.key === key);
+        if (layoutIdx >= 0) {
+            this.powerupRespawnQueue.push({ layoutIdx, dueAt: this.time.now + POWERUP_RESPAWN_MS });
+        }
     }
 
     private fireEnemyShots(e: Enemy, shots: import('../systems/EnemyWeapon.js').EnemyShotSpec[]): void {
