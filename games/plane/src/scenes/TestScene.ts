@@ -186,27 +186,35 @@ export class TestScene extends Phaser.Scene {
             e.behavior?.update(dt, this.player.x);
             e.updateHealthBar();
 
+            // 攻击 pattern 推进：启用时拿 activeStep，决定是否开火 + 用哪套参数
+            const patternActive = e.isAttackPatternActive();
+            const activeStep = patternActive ? e.advancePattern(dt) : null;
+            const canFire = !patternActive || activeStep !== null;
+            const eff = e.getEffectiveAttackParams(activeStep);
+
             // 敌机开火（测试场固定在屏内，PlayScene 的"进入屏幕后才开"条件天然满足）
-            const wkey = e.weaponKey;
             // 预警进行中：跳过 updateEnemyWeapon 推进，等延迟结束再发
-            if (wkey && !e.hasPendingTelegraph()) {
+            if (canFire && eff.weaponKey && !e.hasPendingTelegraph()) {
                 // bulletAim='straight' 时把 px/py 设为正下方一点，让 aimDirection 返回 (0, 1)
-                const aimCtx = e.bulletAim === 'straight'
+                const aimCtx = eff.bulletAim === 'straight'
                     ? { ex: e.x, ey: e.y, px: e.x, py: e.y + 100 }
                     : { ex: e.x, ey: e.y, px: this.player.x, py: this.player.y };
                 const shots = updateEnemyWeapon(
                     e.weaponState,
                     aimCtx,
                     dt,
-                    wkey,
-                    e.attackIntervalMs ?? undefined,
-                    e.bulletSpeed ?? undefined
+                    eff.weaponKey as import('../data/enemyWeapons.js').EnemyWeaponKey,
+                    eff.attackIntervalMs ?? undefined,
+                    eff.bulletSpeed ?? undefined
                 );
                 if (shots.length > 0) {
-                    if (e.telegraphEnabled) {
-                        e.startTelegraph(shots, this.player.x, this.player.y, this.time.now);
+                    if (eff.telegraphEnabled) {
+                        e.startTelegraph(
+                            shots, this.player.x, this.player.y, this.time.now,
+                            eff.telegraphMs, eff.telegraphType
+                        );
                     } else {
-                        this.fireEnemyShots(e, shots);
+                        this.fireEnemyShots(e, shots, eff.bulletTextureKey);
                     }
                 }
             }
@@ -334,8 +342,12 @@ export class TestScene extends Phaser.Scene {
         }
     }
 
-    private fireEnemyShots(e: Enemy, shots: import('../systems/EnemyWeapon.js').EnemyShotSpec[]): void {
-        const bulletTexture = e.bulletTextureKey;
+    private fireEnemyShots(
+        e: Enemy,
+        shots: import('../systems/EnemyWeapon.js').EnemyShotSpec[],
+        textureKey?: string
+    ): void {
+        const bulletTexture = textureKey ?? e.bulletTextureKey;
         for (const s of shots) {
             const eb = this.enemyBullets.get() as EnemyBullet | null;
             if (!eb) continue;

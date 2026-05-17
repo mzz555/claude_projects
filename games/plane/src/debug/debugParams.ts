@@ -57,6 +57,35 @@ export interface BodyShape {
     h: number;
 }
 
+/**
+ * 攻击 Step：可部分覆盖 EnemyOverride 的攻击相关字段。
+ * 留空（undefined）= 该字段沿用顶层 override / typeKey 默认。
+ * 即「step 只写差异部分」。
+ */
+export interface AttackStep {
+    /** 可选标签（UI 显示用） */
+    label?: string;
+    /** 这个 step 持续多久（ms）。到点强制切到下一 step（无论 telegraph 是否完成） */
+    durationMs: number;
+    /** step 后的静默间隔（ms）。0 = 无缝衔接下一 step */
+    gapMs: number;
+    /** 以下字段可选覆盖：留空走顶层 */
+    weaponKey?: string;
+    bulletTexture?: EnemyBulletTextureKey;
+    bulletAim?: BulletAimMode;
+    bulletSpeed?: number;
+    attackIntervalMs?: number;
+    telegraphEnabled?: boolean;
+    telegraphType?: TelegraphType;
+    telegraphMs?: number;
+}
+
+export interface AttackPattern {
+    steps: AttackStep[];
+    /** 走完最后一 step 是否回到 step 0；false 则停火 */
+    loop: boolean;
+}
+
 export interface EnemyOverride {
     behaviorId?: string;
     bulletTexture?: EnemyBulletTextureKey;
@@ -86,6 +115,12 @@ export interface EnemyOverride {
     hitW?: number;
     /** 命中框高比例 */
     hitH?: number;
+    /** 多重攻击模式（启用后取代单 attack） */
+    attackPattern?: AttackPattern;
+    /** 是否启用 attackPattern（独立开关，让用户能临时关掉测试基础攻击） */
+    attackPatternEnabled?: boolean;
+    /** UI 当前编辑的 step index（仅 UI 状态，不影响运行时） */
+    attackPatternEditingIdx?: number;
 }
 
 export interface DebugParams {

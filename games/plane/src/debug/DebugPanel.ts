@@ -13,7 +13,8 @@ import {
     type EnemyTypeKey,
     type HealthBarType,
     type BulletAimMode,
-    type TelegraphType
+    type TelegraphType,
+    type AttackPattern
 } from './debugParams.js';
 import {
     STYLE, HEADER_STYLE, ROW,
@@ -80,12 +81,33 @@ export class DebugPanel {
     tick(): void {
         if (!this.root || !this.selectedEnemy || !this.selectedEnemy.active) return;
         const live = this.root.querySelector('#__plane_dbg_live__');
-        if (!live) return;
         const e = this.selectedEnemy;
-        const b = e.body as Phaser.Physics.Arcade.Body | null;
-        const vx = b?.velocity.x ?? 0;
-        const vy = b?.velocity.y ?? 0;
-        live.textContent = `x=${e.x.toFixed(0)} y=${e.y.toFixed(0)} hp=${e.hp} v=(${vx.toFixed(0)},${vy.toFixed(0)})`;
+        if (live) {
+            const b = e.body as Phaser.Physics.Arcade.Body | null;
+            const vx = b?.velocity.x ?? 0;
+            const vy = b?.velocity.y ?? 0;
+            live.textContent = `x=${e.x.toFixed(0)} y=${e.y.toFixed(0)} hp=${e.hp} v=(${vx.toFixed(0)},${vy.toFixed(0)})`;
+        }
+        // 攻击 pattern 运行时状态
+        const patternStatus = this.root.querySelector('#__plane_dbg_pattern_status__');
+        if (patternStatus) {
+            const ov = debugParams.enemyOverrides[e.typeKey];
+            const pat = ov?.attackPattern;
+            if (!ov?.attackPatternEnabled || !pat || pat.steps.length === 0) {
+                patternStatus.textContent = '';
+            } else {
+                const rt = e.getPatternRuntimeStatus();
+                const curStep = pat.steps[rt.stepIdx];
+                if (rt.exhausted) {
+                    patternStatus.textContent = '⛔ pattern 已结束 (loop=false)';
+                } else if (curStep) {
+                    const total = rt.inGap ? curStep.gapMs : curStep.durationMs;
+                    const pct = total > 0 ? Math.min(100, (rt.elapsed / total) * 100).toFixed(0) : '0';
+                    const phase = rt.inGap ? 'gap' : 'fire';
+                    patternStatus.textContent = `▶ Step ${rt.stepIdx + 1}/${pat.steps.length} ${phase} ${pct}%`;
+                }
+            }
+        }
     }
 
     render(): void {
@@ -482,6 +504,9 @@ export class DebugPanel {
             }
         ));
 
+        // === 🎭 攻击模式（多重 Step Pattern）===
+        this.renderAttackPatternSection(parent, override, e);
+
         // 血条类型（4 选 1，首项"默认"按 tier 自动映射）
         const hbRow = document.createElement('div');
         hbRow.setAttribute('style', ROW);
@@ -518,6 +543,256 @@ export class DebugPanel {
                 parent.appendChild(sliderRow(td.label, td.get(), td.min, td.max, td.step, (v) => td.set(v)));
             }
         }
+    }
+
+    private renderAttackPatternSection(
+        parent: HTMLDivElement,
+        override: import('./debugParams.js').EnemyOverride,
+        e: Enemy
+    ): void {
+        parent.appendChild(sectionTitle('🎭 攻击模式'));
+
+        // 启用复选框
+        parent.appendChild(checkboxRow(
+            '启用 Pattern',
+            override.attackPatternEnabled ?? false,
+            (v) => {
+                override.attackPatternEnabled = v;
+                // 切换后让运行时立刻应用：清状态
+                e.resetAttackPattern();
+                this.render();
+            }
+        ));
+
+        // 确保 pattern 对象存在（不打勾时不创建，避免污染数据）
+        if (!override.attackPatternEnabled) return;
+        if (!override.attackPattern) {
+            override.attackPattern = { steps: [], loop: true };
+        }
+        const pat: AttackPattern = override.attackPattern;
+        const editIdx = override.attackPatternEditingIdx ?? 0;
+
+        // Step 列表头：dropdown + 加 + 删
+        const headerRow = document.createElement('div');
+        headerRow.setAttribute('style', ROW);
+        const headerLab = document.createElement('span');
+        headerLab.style.cssText = 'width: 80px; font-size: 11px;';
+        headerLab.textContent = `Step (${pat.steps.length})`;
+        headerRow.appendChild(headerLab);
+        const stepSel = document.createElement('select');
+        stepSel.style.cssText = 'flex: 1; background: #001; color: #fff; border: 1px solid #1a4a5a; padding: 2px;';
+        for (let i = 0; i < pat.steps.length; i++) {
+            const opt = document.createElement('option');
+            opt.value = String(i);
+            const s = pat.steps[i]!;
+            const label = s.label ?? `Step ${i + 1}`;
+            const w = s.weaponKey ?? '继承';
+            opt.textContent = `${label} (${w}, ${s.durationMs}+${s.gapMs}ms)`;
+            if (i === editIdx) opt.selected = true;
+            stepSel.appendChild(opt);
+        }
+        if (pat.steps.length === 0) {
+            const opt = document.createElement('option');
+            opt.textContent = '(空)';
+            stepSel.appendChild(opt);
+            stepSel.disabled = true;
+        }
+        stepSel.onchange = () => {
+            override.attackPatternEditingIdx = parseInt(stepSel.value, 10);
+            this.render();
+        };
+        headerRow.appendChild(stepSel);
+        parent.appendChild(headerRow);
+
+        // 操作按钮：加 step / 删当前 / 复制
+        const actionRow = document.createElement('div');
+        actionRow.setAttribute('style', 'display: flex; gap: 4px; margin: 2px 0 6px 0;');
+        actionRow.appendChild(button('➕ 新 Step', () => {
+            pat.steps.push({ durationMs: 1500, gapMs: 300 });
+            override.attackPatternEditingIdx = pat.steps.length - 1;
+            e.resetAttackPattern();
+            this.render();
+        }));
+        actionRow.appendChild(button('📋 复制', () => {
+            const cur = pat.steps[editIdx];
+            if (cur) {
+                pat.steps.splice(editIdx + 1, 0, JSON.parse(JSON.stringify(cur)));
+                override.attackPatternEditingIdx = editIdx + 1;
+                e.resetAttackPattern();
+                this.render();
+            }
+        }));
+        actionRow.appendChild(button('🗑 删除', () => {
+            if (pat.steps.length === 0) return;
+            pat.steps.splice(editIdx, 1);
+            override.attackPatternEditingIdx = Math.max(0, Math.min(editIdx, pat.steps.length - 1));
+            e.resetAttackPattern();
+            this.render();
+        }));
+        actionRow.appendChild(button('▶ 重置', () => {
+            e.resetAttackPattern();
+        }));
+        parent.appendChild(actionRow);
+
+        // 循环复选框
+        parent.appendChild(checkboxRow(
+            '循环 (loop)',
+            pat.loop,
+            (v) => { pat.loop = v; e.resetAttackPattern(); }
+        ));
+
+        // 当前 step 编辑器（如有）
+        const step = pat.steps[editIdx];
+        if (!step) return;
+
+        // 时长 / 间隔
+        parent.appendChild(sliderRow(
+            'Step 持续 ms',
+            step.durationMs,
+            100, 10000, 100,
+            (v) => { step.durationMs = v; }
+        ));
+        parent.appendChild(sliderRow(
+            'Step 间隔 ms',
+            step.gapMs,
+            0, 5000, 50,
+            (v) => { step.gapMs = v; }
+        ));
+
+        // 武器（dropdown 第一项"继承基础"）
+        const wRow = document.createElement('div');
+        wRow.setAttribute('style', ROW);
+        const wLab = document.createElement('span');
+        wLab.style.cssText = 'width: 80px; font-size: 11px;';
+        wLab.textContent = 'Step 武器';
+        const wSel = document.createElement('select');
+        wSel.style.cssText = 'flex: 1; background: #001; color: #fff; border: 1px solid #1a4a5a; padding: 2px;';
+        const wDef = document.createElement('option');
+        wDef.value = '';
+        wDef.textContent = `继承（${e.weaponKey}）`;
+        wSel.appendChild(wDef);
+        for (const wk of ENEMY_WEAPON_KEYS) {
+            const opt = document.createElement('option');
+            opt.value = wk;
+            opt.textContent = ENEMY_WEAPON_LABELS[wk];
+            if (step.weaponKey === wk) opt.selected = true;
+            wSel.appendChild(opt);
+        }
+        wSel.onchange = () => {
+            if (wSel.value === '') delete step.weaponKey;
+            else step.weaponKey = wSel.value;
+            this.render();  // 刷新列表（step label 变化）
+        };
+        wRow.appendChild(wLab);
+        wRow.appendChild(wSel);
+        parent.appendChild(wRow);
+
+        // 攻击间隔覆盖（复选框 + 滑条）
+        const intvHasOverride = step.attackIntervalMs !== undefined;
+        parent.appendChild(checkboxRow(
+            'Step 覆盖间隔',
+            intvHasOverride,
+            (v) => {
+                if (v) step.attackIntervalMs = e.attackIntervalMs ?? 1000;
+                else delete step.attackIntervalMs;
+                this.render();
+            }
+        ));
+        if (intvHasOverride) {
+            parent.appendChild(sliderRow(
+                'Step 间隔 ms',
+                step.attackIntervalMs!,
+                100, 5000, 50,
+                (v) => { step.attackIntervalMs = v; }
+            ));
+        }
+
+        // 预警三态：继承 / 强制开 / 强制关
+        const teleRow = document.createElement('div');
+        teleRow.setAttribute('style', ROW);
+        const teleLab = document.createElement('span');
+        teleLab.style.cssText = 'width: 80px; font-size: 11px;';
+        teleLab.textContent = 'Step 预警';
+        const teleSel = document.createElement('select');
+        teleSel.style.cssText = 'flex: 1; background: #001; color: #fff; border: 1px solid #1a4a5a; padding: 2px;';
+        const teleOptInherit = document.createElement('option');
+        teleOptInherit.value = '';
+        teleOptInherit.textContent = `继承（${e.telegraphEnabled ? '开' : '关'}）`;
+        teleSel.appendChild(teleOptInherit);
+        const teleOptOn = document.createElement('option');
+        teleOptOn.value = 'on';
+        teleOptOn.textContent = '强制开';
+        teleSel.appendChild(teleOptOn);
+        const teleOptOff = document.createElement('option');
+        teleOptOff.value = 'off';
+        teleOptOff.textContent = '强制关';
+        teleSel.appendChild(teleOptOff);
+        if (step.telegraphEnabled === true) teleOptOn.selected = true;
+        else if (step.telegraphEnabled === false) teleOptOff.selected = true;
+        else teleOptInherit.selected = true;
+        teleSel.onchange = () => {
+            if (teleSel.value === 'on') step.telegraphEnabled = true;
+            else if (teleSel.value === 'off') step.telegraphEnabled = false;
+            else delete step.telegraphEnabled;
+            this.render();
+        };
+        teleRow.appendChild(teleLab);
+        teleRow.appendChild(teleSel);
+        parent.appendChild(teleRow);
+
+        // 预警类型 + 时间（仅在 step 强制开时显示编辑器，其他情况继承）
+        if (step.telegraphEnabled === true) {
+            const tgRow = document.createElement('div');
+            tgRow.setAttribute('style', ROW);
+            const tgLab = document.createElement('span');
+            tgLab.style.cssText = 'width: 80px; font-size: 11px;';
+            tgLab.textContent = 'Step 线型';
+            const tgSel = document.createElement('select');
+            tgSel.style.cssText = 'flex: 1; background: #001; color: #fff; border: 1px solid #1a4a5a; padding: 2px;';
+            const tgDef = document.createElement('option');
+            tgDef.value = '';
+            tgDef.textContent = `继承（${e.telegraphType}）`;
+            tgSel.appendChild(tgDef);
+            for (const tt of TELEGRAPH_TYPES) {
+                const opt = document.createElement('option');
+                opt.value = tt;
+                opt.textContent = TELEGRAPH_LABELS[tt];
+                if (step.telegraphType === tt) opt.selected = true;
+                tgSel.appendChild(opt);
+            }
+            tgSel.onchange = () => {
+                if (tgSel.value === '') delete step.telegraphType;
+                else step.telegraphType = tgSel.value as TelegraphType;
+            };
+            tgRow.appendChild(tgLab);
+            tgRow.appendChild(tgSel);
+            parent.appendChild(tgRow);
+
+            const teleMsHasOverride = step.telegraphMs !== undefined;
+            parent.appendChild(checkboxRow(
+                'Step 覆盖预警时长',
+                teleMsHasOverride,
+                (v) => {
+                    if (v) step.telegraphMs = e.telegraphMs;
+                    else delete step.telegraphMs;
+                    this.render();
+                }
+            ));
+            if (teleMsHasOverride) {
+                parent.appendChild(sliderRow(
+                    'Step 预警 ms',
+                    step.telegraphMs!,
+                    100, 2000, 50,
+                    (v) => { step.telegraphMs = v; }
+                ));
+            }
+        }
+
+        // 运行时状态显示（每帧由 tick() 刷新内容）
+        const status = document.createElement('div');
+        status.id = '__plane_dbg_pattern_status__';
+        status.style.cssText = 'padding: 2px 4px; font-size: 11px; color: #88ccff; margin-top: 2px;';
+        parent.appendChild(status);
     }
 
     private perEnemyShapeRow(typeKey: keyof typeof ENEMY_TYPE_LABELS): HTMLDivElement {
