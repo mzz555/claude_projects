@@ -8,6 +8,8 @@ import { ENEMY_TYPE_KEYS, type EnemyTypeKey, debugParams } from '../debug/debugP
 import { ENEMY_TYPES } from '../data/enemyTypes.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { WeaponSystem, type ShotSpec } from '../systems/WeaponSystem.js';
+import { updateEnemyWeapon } from '../systems/EnemyWeapon.js';
+import { ENEMY_WEAPON_MAP } from '../data/enemyWeapons.js';
 import { PRIMARY } from '../data/weapons.js';
 import { E } from '../events.js';
 import { DebugPanel } from '../debug/DebugPanel.js';
@@ -95,6 +97,13 @@ export class TestScene extends Phaser.Scene {
             onPowerupPicked: () => {}
         });
 
+        // 玩家被敌机子弹击中：子弹失效（测试场不发 PlayerHit 事件，避免误结算）
+        this.physics.add.overlap(this.player, this.enemyBullets, (_p, b) => {
+            const bullet = b as EnemyBullet;
+            if (!bullet.active) return;
+            bullet.deactivate();
+        });
+
         // 监听 EnemyKilled → 排入 1 秒后复活队列
         this.events.on(E.EnemyKilled, (p: { x: number; y: number }) => {
             const idx = this.findSlotIndexByPos(p.x, p.y);
@@ -139,6 +148,36 @@ export class TestScene extends Phaser.Scene {
             const e = obj as Enemy;
             if (!e.active) return null;
             e.behavior?.update(dt, this.player.x);
+
+            // 敌机开火（测试场固定在屏内，PlayScene 的"进入屏幕后才开"条件天然满足）
+            const wkey = ENEMY_WEAPON_MAP[e.typeKey];
+            if (wkey) {
+                const shots = updateEnemyWeapon(
+                    e.weaponState,
+                    { ex: e.x, ey: e.y, px: this.player.x, py: this.player.y },
+                    dt,
+                    wkey
+                );
+                const bulletTexture = e.bulletTextureKey;
+                for (const s of shots) {
+                    const eb = this.enemyBullets.get() as EnemyBullet | null;
+                    if (!eb) continue;
+                    eb.fire({
+                        x: e.x + s.ox,
+                        y: e.y + s.oy,
+                        vx: s.vx,
+                        vy: s.vy,
+                        damage: s.damage,
+                        texture: bulletTexture
+                    });
+                }
+            }
+            return null;
+        });
+
+        // 敌机子弹超出屏幕回收
+        this.enemyBullets.children.iterate((b) => {
+            (b as EnemyBullet).recycleIfOffscreen(PLAY_AREA.y, PLAY_AREA.y + PLAY_AREA.h);
             return null;
         });
 
