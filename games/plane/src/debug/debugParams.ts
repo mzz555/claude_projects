@@ -39,6 +39,17 @@ export const BULLET_AIM_LABELS: Record<BulletAimMode, string> = {
     straight: '无方向（直下）'
 };
 
+export type TelegraphType = 'line-solid' | 'line-dash' | 'fan' | 'crosshair';
+
+export const TELEGRAPH_TYPES: TelegraphType[] = ['line-solid', 'line-dash', 'fan', 'crosshair'];
+
+export const TELEGRAPH_LABELS: Record<TelegraphType, string> = {
+    'line-solid': '单线（实）',
+    'line-dash': '单线（虚）',
+    'fan': '扇形多线',
+    'crosshair': '十字标记'
+};
+
 export interface BodyShape {
     /** 宽方向比例（1.0 = 紧贴 alpha 包围盒宽） */
     w: number;
@@ -56,6 +67,12 @@ export interface EnemyOverride {
     attackIntervalMs?: number;
     /** 覆盖子弹速度（px/s），null/undefined 时用 weaponKey 默认 */
     bulletSpeed?: number;
+    /** 是否启用预警线 */
+    telegraphEnabled?: boolean;
+    /** 预警线类型（默认 line-solid） */
+    telegraphType?: TelegraphType;
+    /** 预警时间 ms（默认 500） */
+    telegraphMs?: number;
     healthBarType?: HealthBarType;
     hp?: number;
     score?: number;

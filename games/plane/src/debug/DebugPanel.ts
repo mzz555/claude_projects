@@ -7,10 +7,13 @@ import {
     HEALTH_BAR_LABELS,
     BULLET_AIM_MODES,
     BULLET_AIM_LABELS,
+    TELEGRAPH_TYPES,
+    TELEGRAPH_LABELS,
     type EnemyBulletTextureKey,
     type EnemyTypeKey,
     type HealthBarType,
-    type BulletAimMode
+    type BulletAimMode,
+    type TelegraphType
 } from './debugParams.js';
 import {
     STYLE, HEADER_STYLE, ROW,
@@ -355,6 +358,55 @@ export class DebugPanel {
             (v) => {
                 override.bulletSpeed = v;
                 e.setBulletSpeed(v);
+            }
+        ));
+
+        // === 🚨 预警线 ===
+        parent.appendChild(sectionTitle('🚨 预警线'));
+
+        // 启用复选框
+        parent.appendChild(checkboxRow(
+            '启用预警',
+            override.telegraphEnabled ?? false,
+            (v) => {
+                override.telegraphEnabled = v;
+                e.setTelegraphEnabled(v);
+            }
+        ));
+
+        // 线型（4 选 1）
+        const tgRow = document.createElement('div');
+        tgRow.setAttribute('style', ROW);
+        const tgLab = document.createElement('span');
+        tgLab.style.cssText = 'width: 80px; font-size: 11px;';
+        tgLab.textContent = '预警类型';
+        const tgSel = document.createElement('select');
+        tgSel.style.cssText = 'flex: 1; background: #001; color: #fff; border: 1px solid #1a4a5a; padding: 2px;';
+        for (const tt of TELEGRAPH_TYPES) {
+            const opt = document.createElement('option');
+            opt.value = tt;
+            opt.textContent = TELEGRAPH_LABELS[tt];
+            if ((override.telegraphType ?? 'line-solid') === tt) opt.selected = true;
+            tgSel.appendChild(opt);
+        }
+        tgSel.onchange = () => {
+            override.telegraphType = tgSel.value as TelegraphType;
+            e.setTelegraphType(override.telegraphType);
+        };
+        tgRow.appendChild(tgLab);
+        tgRow.appendChild(tgSel);
+        parent.appendChild(tgRow);
+
+        // 预警时间 ms
+        parent.appendChild(sliderRow(
+            '预警时间 ms',
+            override.telegraphMs ?? 500,
+            100,
+            2000,
+            50,
+            (v) => {
+                override.telegraphMs = v;
+                e.setTelegraphMs(v);
             }
         ));
 

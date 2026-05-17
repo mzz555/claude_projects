@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { ENEMY_TYPES, defaultHealthBarByTier, type EnemyTypeKey } from '../data/enemyTypes.js';
 import type { EnemyWeaponState } from '../systems/EnemyWeapon.js';
 import { ENEMY_WEAPON_MAP, type EnemyWeaponKey } from '../data/enemyWeapons.js';
-import { debugParams, type HealthBarType, type BulletAimMode } from '../debug/debugParams.js';
+import { debugParams, type HealthBarType, type BulletAimMode, type TelegraphType } from '../debug/debugParams.js';
+import type { EnemyShotSpec } from '../systems/EnemyWeapon.js';
 import { getAlphaBounds } from '../debug/textureBounds.js';
 import { BehaviorRegistry, type IEnemyBehavior } from '../behaviors/index.js';
 
@@ -47,6 +48,21 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     attackIntervalMs: number | null = null;
     /** 子弹速度覆盖（px/s）。null 时用 weaponKey 默认 */
     bulletSpeed: number | null = null;
+    /** 是否启用预警线 */
+    telegraphEnabled = false;
+    /** 预警线类型 */
+    telegraphType: TelegraphType = 'line-solid';
+    /** 预警时间 ms */
+    telegraphMs = 500;
+    /** 进行中的预警（startTelegraph 后非 null，dueAt 到了 updateTelegraph 取出 shots 并清空） */
+    private pendingTelegraph: {
+        shots: EnemyShotSpec[];
+        aimX: number;
+        aimY: number;
+        startAt: number;
+        dueAt: number;
+    } | null = null;
+    private telegraphGfx: Phaser.GameObjects.Graphics;
     healthBarType: HealthBarType = 'normal';
     private healthBarGfx: Phaser.GameObjects.Graphics;
 
@@ -57,6 +73,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.healthBarGfx = scene.add.graphics();
         this.healthBarGfx.setDepth(100);
         this.healthBarGfx.setVisible(false);
+        this.telegraphGfx = scene.add.graphics();
+        this.telegraphGfx.setDepth(50);
+        this.telegraphGfx.setVisible(false);
     }
 
     spawn(args: EnemySpawnArgs): void {
@@ -95,6 +114,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.bulletAim = override?.bulletAim ?? 'aim';
         this.attackIntervalMs = override?.attackIntervalMs ?? null;
         this.bulletSpeed = override?.bulletSpeed ?? null;
+        this.telegraphEnabled = override?.telegraphEnabled ?? false;
+        this.telegraphType = override?.telegraphType ?? 'line-solid';
+        this.telegraphMs = override?.telegraphMs ?? 500;
+        this.pendingTelegraph = null;
+        this.telegraphGfx.setVisible(false).clear();
         this.recomputeAlphaTightBody();
         this.setPosition(args.x, args.y);
         this.setVelocity(0, args.vy);
@@ -154,6 +178,106 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         // 子弹速度只影响新发射的子弹，已在场的不变；无需清 weaponState
     }
 
+    setTelegraphEnabled(v: boolean): void {
+        this.telegraphEnabled = v;
+        // 关闭预警时把进行中的预警直接抛弃（不补射，避免突然冒一发）
+        if (!v) {
+            this.pendingTelegraph = null;
+            this.telegraphGfx.setVisible(false).clear();
+        }
+    }
+
+    setTelegraphType(t: TelegraphType): void {
+        this.telegraphType = t;
+    }
+
+    setTelegraphMs(ms: number): void {
+        this.telegraphMs = ms;
+    }
+
+    /** 开始预警：锁方向（基于 shots 已计算的 vx/vy）、记录玩家位置（十字标记用）、设 dueAt */
+    startTelegraph(shots: EnemyShotSpec[], aimX: number, aimY: number, nowMs: number): void {
+        this.pendingTelegraph = {
+            shots,
+            aimX,
+            aimY,
+            startAt: nowMs,
+            dueAt: nowMs + this.telegraphMs
+        };
+    }
+
+    /** 推进预警：dueAt 已到则取出 shots 并清空、隐藏预警线；否则重绘预警线 */
+    updateTelegraph(nowMs: number): EnemyShotSpec[] | null {
+        const p = this.pendingTelegraph;
+        if (!p) return null;
+        if (nowMs >= p.dueAt) {
+            this.pendingTelegraph = null;
+            this.telegraphGfx.setVisible(false).clear();
+            return p.shots;
+        }
+        this.drawTelegraph(nowMs);
+        return null;
+    }
+
+    private drawTelegraph(nowMs: number): void {
+        const p = this.pendingTelegraph;
+        if (!p) return;
+        const g = this.telegraphGfx;
+        g.clear();
+        g.setVisible(true);
+        // 接近 dueAt 越红越粗（progress 0→1）
+        const progress = Math.min(1, (nowMs - p.startAt) / Math.max(1, p.dueAt - p.startAt));
+        const alpha = 0.4 + 0.5 * progress;
+        const width = 2 + 2 * progress;
+        const color = 0xff4444;
+        const LEN = 600;
+
+        if (this.telegraphType === 'crosshair') {
+            // 在锁定的玩家位置画十字
+            g.lineStyle(width, color, alpha);
+            const cx = p.aimX, cy = p.aimY, s = 20;
+            g.beginPath();
+            g.moveTo(cx - s, cy); g.lineTo(cx + s, cy);
+            g.moveTo(cx, cy - s); g.lineTo(cx, cy + s);
+            g.strokePath();
+            return;
+        }
+
+        // line-solid / line-dash 用第一发的方向；fan 遍历所有 shots
+        const list = this.telegraphType === 'fan' ? p.shots : p.shots.slice(0, 1);
+        for (const s of list) {
+            const v = Math.hypot(s.vx, s.vy) || 1;
+            const nx = s.vx / v, ny = s.vy / v;
+            const x0 = this.x, y0 = this.y;
+            const x1 = x0 + nx * LEN, y1 = y0 + ny * LEN;
+            if (this.telegraphType === 'line-dash') {
+                // 模拟虚线：每 16px 画 8px
+                const dist = Math.hypot(x1 - x0, y1 - y0);
+                const seg = 16, dash = 8;
+                g.lineStyle(width, color, alpha);
+                let t = 0;
+                while (t < dist) {
+                    const a = t / dist;
+                    const b = Math.min(t + dash, dist) / dist;
+                    g.beginPath();
+                    g.moveTo(x0 + (x1 - x0) * a, y0 + (y1 - y0) * a);
+                    g.lineTo(x0 + (x1 - x0) * b, y0 + (y1 - y0) * b);
+                    g.strokePath();
+                    t += seg;
+                }
+            } else {
+                g.lineStyle(width, color, alpha);
+                g.beginPath();
+                g.moveTo(x0, y0); g.lineTo(x1, y1);
+                g.strokePath();
+            }
+        }
+    }
+
+    hasPendingTelegraph(): boolean {
+        return this.pendingTelegraph !== null;
+    }
+
     setTypeKey(newKey: EnemyTypeKey): void {
         this.typeKey = newKey;
         const t = ENEMY_TYPES[newKey];
@@ -193,6 +317,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         // 子弹速度
         this.bulletSpeed = override?.bulletSpeed ?? null;
 
+        // 预警线
+        this.telegraphEnabled = override?.telegraphEnabled ?? false;
+        this.telegraphType = override?.telegraphType ?? 'line-solid';
+        this.telegraphMs = override?.telegraphMs ?? 500;
+        this.pendingTelegraph = null;
+        this.telegraphGfx.setVisible(false).clear();
+
         // 行为（沿用现有 setBehavior 复用）
         this.setBehavior(override?.behaviorId ?? t.behaviorId);
 
@@ -207,6 +338,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.setVelocity(0, 0);
         this.behavior = null;
         this.healthBarGfx.setVisible(false);
+        this.pendingTelegraph = null;
+        this.telegraphGfx.setVisible(false).clear();
     }
 
     setHealthBarType(type: HealthBarType): void {

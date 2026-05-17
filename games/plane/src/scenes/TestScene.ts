@@ -151,7 +151,8 @@ export class TestScene extends Phaser.Scene {
 
             // 敌机开火（测试场固定在屏内，PlayScene 的"进入屏幕后才开"条件天然满足）
             const wkey = e.weaponKey;
-            if (wkey) {
+            // 预警进行中：跳过 updateEnemyWeapon 推进，等延迟结束再发
+            if (wkey && !e.hasPendingTelegraph()) {
                 // bulletAim='straight' 时把 px/py 设为正下方一点，让 aimDirection 返回 (0, 1)
                 const aimCtx = e.bulletAim === 'straight'
                     ? { ex: e.x, ey: e.y, px: e.x, py: e.y + 100 }
@@ -164,20 +165,17 @@ export class TestScene extends Phaser.Scene {
                     e.attackIntervalMs ?? undefined,
                     e.bulletSpeed ?? undefined
                 );
-                const bulletTexture = e.bulletTextureKey;
-                for (const s of shots) {
-                    const eb = this.enemyBullets.get() as EnemyBullet | null;
-                    if (!eb) continue;
-                    eb.fire({
-                        x: e.x + s.ox,
-                        y: e.y + s.oy,
-                        vx: s.vx,
-                        vy: s.vy,
-                        damage: s.damage,
-                        texture: bulletTexture
-                    });
+                if (shots.length > 0) {
+                    if (e.telegraphEnabled) {
+                        e.startTelegraph(shots, this.player.x, this.player.y, this.time.now);
+                    } else {
+                        this.fireEnemyShots(e, shots);
+                    }
                 }
             }
+            // 推进预警：到点取出 shots 真发射
+            const due = e.updateTelegraph(this.time.now);
+            if (due) this.fireEnemyShots(e, due);
             return null;
         });
 
@@ -244,6 +242,22 @@ export class TestScene extends Phaser.Scene {
             if (e.active) e.setTypeKey(newKey);
             return null;
         });
+    }
+
+    private fireEnemyShots(e: Enemy, shots: import('../systems/EnemyWeapon.js').EnemyShotSpec[]): void {
+        const bulletTexture = e.bulletTextureKey;
+        for (const s of shots) {
+            const eb = this.enemyBullets.get() as EnemyBullet | null;
+            if (!eb) continue;
+            eb.fire({
+                x: e.x + s.ox,
+                y: e.y + s.oy,
+                vx: s.vx,
+                vy: s.vy,
+                damage: s.damage,
+                texture: bulletTexture
+            });
+        }
     }
 
     private fireSpec(spec: ShotSpec): void {
