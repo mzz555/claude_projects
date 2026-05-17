@@ -173,7 +173,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         const g = this.healthBarGfx;
         g.clear();
         const style = HEALTH_BAR_STYLES[this.healthBarType];
-        const w = style.w;
+        // 长度 = 类型基础宽 + maxHp 加成（cap 120）。类型保留视觉差异，maxHp 越大血条越长
+        const w = style.w + Math.min(120, this.maxHp * 1.5);
         const h = style.h;
         const x = this.x - w / 2;
         const y = this.y - this.displayHeight / 2 - h - 6;
