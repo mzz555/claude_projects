@@ -5,6 +5,10 @@ import {
     ENEMY_TYPE_LABELS,
     type EnemyBulletTextureKey
 } from './debugParams.js';
+import {
+    STYLE, HEADER_STYLE, ROW,
+    sliderRow, checkboxRow, sectionTitle, button
+} from './widgets.js';
 
 const BULLET_LABELS: Record<EnemyBulletTextureKey, string> = {
     'enemy-bullet-small': 'small（侦察/战斗）',
@@ -13,39 +17,6 @@ const BULLET_LABELS: Record<EnemyBulletTextureKey, string> = {
     'enemy-bullet-orb': 'orb（巡洋）',
     'enemy-bullet-heavy': 'heavy（轰炸/母舰）'
 };
-
-const STYLE = `
-  position: fixed; top: 8px; right: 8px; z-index: 9999;
-  width: 320px; max-height: 95vh; overflow-y: auto;
-  background: rgba(0, 16, 24, 0.92); color: #7df9ff;
-  font: 12px/1.4 monospace, "Microsoft YaHei";
-  border: 1px solid #1a4a5a; border-radius: 4px;
-  padding: 8px 10px; user-select: none;
-`;
-
-const HEADER_STYLE = `
-  font-weight: bold; font-size: 13px; color: #fff;
-  border-bottom: 1px solid #1a4a5a; padding-bottom: 4px; margin-bottom: 6px;
-  display: flex; justify-content: space-between; align-items: center;
-`;
-
-const SECTION_TITLE = `
-  color: #ffaa00; font-weight: bold; margin-top: 8px; margin-bottom: 4px;
-`;
-
-const ROW = `
-  display: flex; align-items: center; gap: 6px; margin: 3px 0;
-`;
-
-const VALUE_BADGE = `
-  display: inline-block; min-width: 38px; text-align: right;
-  color: #fff; font-weight: bold;
-`;
-
-const BTN = `
-  background: #1a4a5a; color: #fff; border: 1px solid #2a6a7a;
-  padding: 4px 8px; font: 11px monospace; cursor: pointer; border-radius: 2px;
-`;
 
 export class DebugPanel {
     private root: HTMLDivElement | null = null;
@@ -75,26 +46,20 @@ export class DebugPanel {
         const header = document.createElement('div');
         header.setAttribute('style', HEADER_STYLE);
         header.innerHTML = `<span>🛠 调参面板 (F1 切换命中框)</span>`;
-        const toggleBtn = document.createElement('button');
-        toggleBtn.setAttribute('style', BTN);
-        toggleBtn.textContent = this.collapsed ? '展开' : '折叠';
-        toggleBtn.onclick = (): void => {
+        const toggleBtn = button(this.collapsed ? '展开' : '折叠', () => {
             this.collapsed = !this.collapsed;
             this.render();
-        };
+        });
         header.appendChild(toggleBtn);
         r.appendChild(header);
 
         if (this.collapsed) return;
 
         // === 敌机 ===
-        const enemyTitle = document.createElement('div');
-        enemyTitle.setAttribute('style', SECTION_TITLE);
-        enemyTitle.textContent = '敌机';
-        r.appendChild(enemyTitle);
+        r.appendChild(sectionTitle('敌机'));
 
         r.appendChild(
-            this.sliderRow(
+            sliderRow(
                 '贴图缩放',
                 debugParams.enemyDisplayScale,
                 1,
@@ -104,7 +69,7 @@ export class DebugPanel {
             )
         );
         r.appendChild(
-            this.sliderRow(
+            sliderRow(
                 '全局 hitbox',
                 debugParams.enemyBodyRatio,
                 0.2,
@@ -115,40 +80,28 @@ export class DebugPanel {
         );
 
         // === 每机微调（形状）===
-        const perEnemyTitle = document.createElement('div');
-        perEnemyTitle.setAttribute('style', SECTION_TITLE);
-        perEnemyTitle.textContent = '每机 hitbox 形状（W × H，叠乘到全局）';
-        r.appendChild(perEnemyTitle);
+        r.appendChild(sectionTitle('每机 hitbox 形状（W × H，叠乘到全局）'));
 
         for (const typeKey of ENEMY_TYPE_KEYS) {
             r.appendChild(this.perEnemyShapeRow(typeKey));
         }
 
         // === 子弹 ===
-        const bulletTitle = document.createElement('div');
-        bulletTitle.setAttribute('style', SECTION_TITLE);
-        bulletTitle.textContent = '子弹尺寸（W × H）';
-        r.appendChild(bulletTitle);
+        r.appendChild(sectionTitle('子弹尺寸（W × H）'));
 
         for (const key of ENEMY_BULLET_KEYS) {
             r.appendChild(this.bulletSizeRow(key));
         }
 
         // === 开关 ===
-        const toggleTitle = document.createElement('div');
-        toggleTitle.setAttribute('style', SECTION_TITLE);
-        toggleTitle.textContent = '可视化';
-        r.appendChild(toggleTitle);
-        r.appendChild(this.checkboxRow('显示命中框（F1）', debugParams.showHitbox, (v) => (debugParams.showHitbox = v)));
+        r.appendChild(sectionTitle('可视化'));
+        r.appendChild(checkboxRow('显示命中框（F1）', debugParams.showHitbox, (v) => (debugParams.showHitbox = v)));
 
         // === 操作 ===
         const actions = document.createElement('div');
         actions.setAttribute('style', 'margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap;');
 
-        const copyBtn = document.createElement('button');
-        copyBtn.setAttribute('style', BTN);
-        copyBtn.textContent = '📋 复制当前参数';
-        copyBtn.onclick = (): void => {
+        const copyBtn = button('📋 复制当前参数', () => {
             const out = JSON.stringify(
                 {
                     enemyDisplayScale: debugParams.enemyDisplayScale,
@@ -166,53 +119,16 @@ export class DebugPanel {
                     setTimeout(() => (copyBtn.textContent = '📋 复制当前参数'), 1500);
                 })
                 .catch(() => alert(out));
-        };
+        });
         actions.appendChild(copyBtn);
 
-        const dumpBtn = document.createElement('button');
-        dumpBtn.setAttribute('style', BTN);
-        dumpBtn.textContent = '🖨 打印到控制台';
-        dumpBtn.onclick = (): void => {
+        const dumpBtn = button('🖨 打印到控制台', () => {
             // eslint-disable-next-line no-console
             console.log('[debugParams]', JSON.parse(JSON.stringify(debugParams)));
-        };
+        });
         actions.appendChild(dumpBtn);
 
         r.appendChild(actions);
-    }
-
-    private sliderRow(
-        label: string,
-        initial: number,
-        min: number,
-        max: number,
-        step: number,
-        onChange: (v: number) => void
-    ): HTMLDivElement {
-        const row = document.createElement('div');
-        row.setAttribute('style', ROW);
-        const lab = document.createElement('span');
-        lab.style.cssText = 'width: 80px;';
-        lab.textContent = label;
-        const input = document.createElement('input');
-        input.type = 'range';
-        input.min = String(min);
-        input.max = String(max);
-        input.step = String(step);
-        input.value = String(initial);
-        input.style.cssText = 'flex: 1;';
-        const badge = document.createElement('span');
-        badge.setAttribute('style', VALUE_BADGE);
-        badge.textContent = initial.toFixed(2);
-        input.oninput = (): void => {
-            const v = parseFloat(input.value);
-            badge.textContent = v.toFixed(2);
-            onChange(v);
-        };
-        row.appendChild(lab);
-        row.appendChild(input);
-        row.appendChild(badge);
-        return row;
     }
 
     private perEnemyShapeRow(typeKey: keyof typeof ENEMY_TYPE_LABELS): HTMLDivElement {
@@ -304,25 +220,4 @@ export class DebugPanel {
         return row;
     }
 
-    private checkboxRow(
-        label: string,
-        initial: boolean,
-        onChange: (v: boolean) => void
-    ): HTMLDivElement {
-        const row = document.createElement('div');
-        row.setAttribute('style', ROW);
-        const input = document.createElement('input');
-        input.type = 'checkbox';
-        input.checked = initial;
-        input.onchange = (): void => onChange(input.checked);
-        const lab = document.createElement('label');
-        lab.appendChild(input);
-        const text = document.createElement('span');
-        text.style.cssText = 'margin-left: 6px;';
-        text.textContent = label;
-        lab.appendChild(text);
-        lab.style.cssText = 'cursor: pointer;';
-        row.appendChild(lab);
-        return row;
-    }
 }
