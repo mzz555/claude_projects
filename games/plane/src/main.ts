@@ -1,21 +1,19 @@
 import Phaser from 'phaser';
-import { BootScene, TitleScene } from '@cp/core';
+import { BootScene } from '@cp/core';
 import { PLANE_THEME } from './data/theme.js';
 import { planeManifest } from './assets/manifest.js';
 import { PlayScene } from './scenes/PlayScene.js';
 import { ResultScene } from './scenes/ResultScene.js';
+import { PlaneTitleScene } from './scenes/PlaneTitleScene.js';
+import { TestScene } from './scenes/TestScene.js';
 import { registerAllBehaviors } from './behaviors/index.js';
 
 registerAllBehaviors();
 
 const boot = new BootScene({ manifest: planeManifest, next: 'title' });
-const title = new TitleScene({
-    title: '雷霆战机',
-    subtitle: 'Phaser 重写版 · M4e',
-    theme: PLANE_THEME,
-    onStart: () => game.scene.start('play')
-});
+const title = new PlaneTitleScene();
 const play = new PlayScene();
+const test = new TestScene();
 const result = new ResultScene();
 
 const game = new Phaser.Game({
@@ -29,5 +27,5 @@ const game = new Phaser.Game({
         default: 'arcade',
         arcade: { gravity: { x: 0, y: 0 }, debug: false }
     },
-    scene: [boot, title, play, result]
+    scene: [boot, title, play, test, result]
 });
