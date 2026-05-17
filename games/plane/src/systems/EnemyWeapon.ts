@@ -70,14 +70,16 @@ export function updateEnemyWeapon(
     state: EnemyWeaponState,
     ctx: EnemyWeaponCtx,
     dtMs: number,
-    key: EnemyWeaponKey
+    key: EnemyWeaponKey,
+    overrideIntervalMs?: number
 ): EnemyShotSpec[] {
     const w = ENEMY_WEAPONS[key];
+    const intervalMs = overrideIntervalMs ?? w.intervalMs;
     state.cooldownMs -= dtMs;
 
     if (w.burstSize > 1) {
         if (state.cooldownMs <= 0 && state.burstRemaining <= 0) {
-            state.cooldownMs = w.intervalMs;
+            state.cooldownMs = intervalMs;
             state.burstRemaining = w.burstSize;
             state.burstNextMs = 0;
         }
@@ -100,7 +102,7 @@ export function updateEnemyWeapon(
     }
 
     if (state.cooldownMs <= 0) {
-        state.cooldownMs = w.intervalMs;
+        state.cooldownMs = intervalMs;
         return fanShots(
             ctx,
             w.pelletsPerShot,

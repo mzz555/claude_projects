@@ -43,6 +43,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     behavior: IEnemyBehavior | null = null;
     bulletTextureKey: string = '';
     bulletAim: BulletAimMode = 'aim';
+    /** 攻击间隔覆盖（ms）。null 时用 weaponKey 默认 */
+    attackIntervalMs: number | null = null;
     healthBarType: HealthBarType = 'normal';
     private healthBarGfx: Phaser.GameObjects.Graphics;
 
@@ -89,6 +91,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
             ?? ENEMY_WEAPON_MAP[args.typeKey]
             ?? 'single';
         this.bulletAim = override?.bulletAim ?? 'aim';
+        this.attackIntervalMs = override?.attackIntervalMs ?? null;
         this.recomputeAlphaTightBody();
         this.setPosition(args.x, args.y);
         this.setVelocity(0, args.vy);
@@ -137,6 +140,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.bulletAim = mode;
     }
 
+    setAttackInterval(ms: number | null): void {
+        this.attackIntervalMs = ms;
+        // 改频率时清状态，让新间隔立刻生效（避免上一拍 cooldown 已蓄到一半）
+        this.weaponState = { cooldownMs: 0, burstRemaining: 0, burstNextMs: 0 };
+    }
+
     setTypeKey(newKey: EnemyTypeKey): void {
         this.typeKey = newKey;
         const t = ENEMY_TYPES[newKey];
@@ -169,6 +178,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
         // 子弹方向
         this.bulletAim = override?.bulletAim ?? 'aim';
+
+        // 攻击间隔
+        this.attackIntervalMs = override?.attackIntervalMs ?? null;
 
         // 行为（沿用现有 setBehavior 复用）
         this.setBehavior(override?.behaviorId ?? t.behaviorId);

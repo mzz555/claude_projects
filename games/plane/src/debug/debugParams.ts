@@ -52,6 +52,8 @@ export interface EnemyOverride {
     /** 发射方式 key（来自 enemyWeapons.ts），用 string 避免循环 import */
     weaponKey?: string;
     bulletAim?: BulletAimMode;
+    /** 覆盖攻击间隔（ms），null/undefined 时用 weaponKey 默认 */
+    attackIntervalMs?: number;
     healthBarType?: HealthBarType;
     hp?: number;
     score?: number;

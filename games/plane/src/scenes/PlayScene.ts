@@ -308,7 +308,8 @@ export class PlayScene extends Phaser.Scene {
                         e.weaponState,
                         aimCtx,
                         delta,
-                        wkey
+                        wkey,
+                        e.attackIntervalMs ?? undefined
                     );
                     const bulletTexture = e.bulletTextureKey;
                     for (const s of shots) {

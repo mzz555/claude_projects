@@ -22,6 +22,7 @@ import {
     ENEMY_WEAPON_KEYS,
     ENEMY_WEAPON_LABELS,
     ENEMY_WEAPON_MAP,
+    ENEMY_WEAPONS,
     type EnemyWeaponKey
 } from '../data/enemyWeapons.js';
 
@@ -328,6 +329,20 @@ export class DebugPanel {
         aimRow.appendChild(aimLab);
         aimRow.appendChild(aimSel);
         parent.appendChild(aimRow);
+
+        // 攻击间隔 ms（覆盖 weaponKey 默认 intervalMs；越小越频繁）
+        const curWeaponInterval = ENEMY_WEAPONS[e.weaponKey].intervalMs;
+        parent.appendChild(sliderRow(
+            '攻击间隔 ms',
+            override.attackIntervalMs ?? curWeaponInterval,
+            100,
+            5000,
+            50,
+            (v) => {
+                override.attackIntervalMs = v;
+                e.setAttackInterval(v);
+            }
+        ));
 
         // 血条类型（4 选 1，首项"默认"按 tier 自动映射）
         const hbRow = document.createElement('div');
