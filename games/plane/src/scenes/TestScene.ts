@@ -30,6 +30,9 @@ export class TestScene extends Phaser.Scene {
     private debugPanel: DebugPanel | null = null;
     private inspector: EnemyInspector | null = null;
     private toolbar: HTMLDivElement | null = null;
+    private trailGfx!: Phaser.GameObjects.Graphics;
+    private trailHistory: Phaser.Math.Vector2[] = [];
+    private readonly TRAIL_MAX = 60;
 
     constructor() {
         super('test');
@@ -97,6 +100,10 @@ export class TestScene extends Phaser.Scene {
             if (idx >= 0) this.respawnQueue.push({ slotIdx: idx, dueAt: this.time.now + 1000 });
         });
 
+        // 轨迹图层
+        this.trailGfx = this.add.graphics();
+        this.trailGfx.setDepth(50);
+
         // 调参 UI
         this.debugPanel = new DebugPanel();
         this.debugPanel.mount();
@@ -139,6 +146,34 @@ export class TestScene extends Phaser.Scene {
         while (this.respawnQueue.length > 0 && this.respawnQueue[0]!.dueAt <= now) {
             const { slotIdx } = this.respawnQueue.shift()!;
             this.spawnSlot(slotIdx);
+        }
+
+        // 轨迹可视化
+        this.trailGfx.clear();
+        const selectedKey = debugParams.selectedEnemyTypeKey;
+        if (selectedKey) {
+            let target: Enemy | null = null;
+            this.enemies.children.iterate((obj) => {
+                const e = obj as Enemy;
+                if (e.active && e.typeKey === selectedKey) target = e;
+                return null;
+            });
+            if (target) {
+                const t = target as Enemy;
+                this.trailHistory.push(new Phaser.Math.Vector2(t.x, t.y));
+                if (this.trailHistory.length > this.TRAIL_MAX) this.trailHistory.shift();
+                this.trailGfx.lineStyle(2, 0xffaa00, 0.5);
+                this.trailGfx.beginPath();
+                this.trailHistory.forEach((p, i) => {
+                    if (i === 0) this.trailGfx.moveTo(p.x, p.y);
+                    else this.trailGfx.lineTo(p.x, p.y);
+                });
+                this.trailGfx.strokePath();
+            } else {
+                this.trailHistory.length = 0;
+            }
+        } else {
+            this.trailHistory.length = 0;
         }
     }
 
