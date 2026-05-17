@@ -4,6 +4,9 @@ import { PLANE_THEME } from './data/theme.js';
 import { planeManifest } from './assets/manifest.js';
 import { PlayScene } from './scenes/PlayScene.js';
 import { ResultScene } from './scenes/ResultScene.js';
+import { registerAllBehaviors } from './behaviors/index.js';
+
+registerAllBehaviors();
 
 const boot = new BootScene({ manifest: planeManifest, next: 'title' });
 const title = new TitleScene({

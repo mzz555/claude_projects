@@ -31,9 +31,7 @@ import { ENEMY_TYPES, type EnemyTypeKey } from '../data/enemyTypes.js';
 import type { PowerupKey } from '../data/powerups.js';
 import { WaveDirector } from '../systems/WaveDirector.js';
 import {
-    updateBehavior,
-    shouldConfront,
-    type BehaviorTarget
+    shouldConfront
 } from '../systems/EnemyBehavior.js';
 import { updateBossBehavior } from '../systems/BossBehavior.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
@@ -284,27 +282,11 @@ export class PlayScene extends Phaser.Scene {
             }
         }
 
-        const dtSec = delta / 1000;
         const pX = this.player.x;
         this.enemies.children.iterate((obj) => {
             const e = obj as Enemy;
             if (!e.active) return null;
-            const body = e.body as Phaser.Physics.Arcade.Body;
-            const target: BehaviorTarget = {
-                typeKey: e.typeKey,
-                x: e.x,
-                y: e.y,
-                spawnX: e.spawnX,
-                behaviorTime: e.behaviorTime,
-                sweepDir: e.sweepDir,
-                confronting: e.confronting,
-                getVelocityX: () => body.velocity.x,
-                setVelocityX: (v: number) => body.setVelocityX(v),
-                getVelocityY: () => body.velocity.y,
-                setVelocityY: (v: number) => body.setVelocityY(v)
-            };
-            updateBehavior(target, dtSec, pX);
-            e.behaviorTime = target.behaviorTime;
+            e.behavior?.update(delta, pX);
             if (!e.confronting && shouldConfront(e.typeKey, e.y, this.player.y)) {
                 e.confronting = true;
             }

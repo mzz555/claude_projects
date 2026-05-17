@@ -26,6 +26,14 @@ export interface BodyShape {
     h: number;
 }
 
+export interface EnemyOverride {
+    behaviorId?: string;
+    hp?: number;
+    score?: number;
+    dmg?: number;
+    vy?: number;
+}
+
 export interface DebugParams {
     enemyDisplayScale: number;
     enemyBodyRatio: number;
@@ -33,6 +41,14 @@ export interface DebugParams {
     perEnemyBodyRatio: Record<EnemyTypeKey, BodyShape>;
     bulletSize: Record<EnemyBulletTextureKey, [number, number]>;
     showHitbox: boolean;
+    /** 每机 override（仅 TestScene 用，PlayScene 不设值就走 ENEMY_TYPES 默认） */
+    enemyOverrides: Partial<Record<EnemyTypeKey, EnemyOverride>>;
+    /** 当前选中查看的敌机 typeKey（EnemyInspector 用） */
+    selectedEnemyTypeKey: EnemyTypeKey | null;
+    /** 暂停 */
+    paused: boolean;
+    /** 时间缩放（1.0 正常，0.25 慢放） */
+    timeScale: number;
 }
 
 export const debugParams: DebugParams = {
@@ -54,7 +70,11 @@ export const debugParams: DebugParams = {
         'enemy-bullet-orb': [96, 96],
         'enemy-bullet-heavy': [96, 162]
     },
-    showHitbox: false
+    showHitbox: false,
+    enemyOverrides: {},
+    selectedEnemyTypeKey: null,
+    paused: false,
+    timeScale: 1.0
 };
 
 export const ENEMY_TYPE_KEYS: EnemyTypeKey[] = [
