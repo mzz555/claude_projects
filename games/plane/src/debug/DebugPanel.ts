@@ -5,9 +5,12 @@ import {
     ENEMY_TYPE_LABELS,
     HEALTH_BAR_TYPES,
     HEALTH_BAR_LABELS,
+    BULLET_AIM_MODES,
+    BULLET_AIM_LABELS,
     type EnemyBulletTextureKey,
     type EnemyTypeKey,
-    type HealthBarType
+    type HealthBarType,
+    type BulletAimMode
 } from './debugParams.js';
 import {
     STYLE, HEADER_STYLE, ROW,
@@ -297,6 +300,34 @@ export class DebugPanel {
         bulRow.appendChild(bulLab);
         bulRow.appendChild(bulSel);
         parent.appendChild(bulRow);
+
+        // 子弹方向（2 选 1，首项"默认（面向英雄机）"清 override）
+        const aimRow = document.createElement('div');
+        aimRow.setAttribute('style', ROW);
+        const aimLab = document.createElement('span');
+        aimLab.style.cssText = 'width: 80px; font-size: 11px;';
+        aimLab.textContent = '子弹方向';
+        const aimSel = document.createElement('select');
+        aimSel.style.cssText = 'flex: 1; background: #001; color: #fff; border: 1px solid #1a4a5a; padding: 2px;';
+        const aimDef = document.createElement('option');
+        aimDef.value = '';
+        aimDef.textContent = `默认（${BULLET_AIM_LABELS.aim}）`;
+        aimSel.appendChild(aimDef);
+        for (const m of BULLET_AIM_MODES) {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = BULLET_AIM_LABELS[m];
+            if (override.bulletAim === m) opt.selected = true;
+            aimSel.appendChild(opt);
+        }
+        aimSel.onchange = () => {
+            if (aimSel.value === '') delete override.bulletAim;
+            else override.bulletAim = aimSel.value as BulletAimMode;
+            e.setBulletAim(override.bulletAim ?? 'aim');
+        };
+        aimRow.appendChild(aimLab);
+        aimRow.appendChild(aimSel);
+        parent.appendChild(aimRow);
 
         // 血条类型（4 选 1，首项"默认"按 tier 自动映射）
         const hbRow = document.createElement('div');

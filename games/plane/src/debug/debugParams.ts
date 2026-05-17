@@ -30,6 +30,15 @@ export const HEALTH_BAR_LABELS: Record<HealthBarType, string> = {
     boss: 'Boss'
 };
 
+export type BulletAimMode = 'aim' | 'straight';
+
+export const BULLET_AIM_MODES: BulletAimMode[] = ['aim', 'straight'];
+
+export const BULLET_AIM_LABELS: Record<BulletAimMode, string> = {
+    aim: '面向英雄机',
+    straight: '无方向（直下）'
+};
+
 export interface BodyShape {
     /** 宽方向比例（1.0 = 紧贴 alpha 包围盒宽） */
     w: number;
@@ -42,6 +51,7 @@ export interface EnemyOverride {
     bulletTexture?: EnemyBulletTextureKey;
     /** 发射方式 key（来自 enemyWeapons.ts），用 string 避免循环 import */
     weaponKey?: string;
+    bulletAim?: BulletAimMode;
     healthBarType?: HealthBarType;
     hp?: number;
     score?: number;

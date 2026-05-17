@@ -152,9 +152,13 @@ export class TestScene extends Phaser.Scene {
             // 敌机开火（测试场固定在屏内，PlayScene 的"进入屏幕后才开"条件天然满足）
             const wkey = e.weaponKey;
             if (wkey) {
+                // bulletAim='straight' 时把 px/py 设为正下方一点，让 aimDirection 返回 (0, 1)
+                const aimCtx = e.bulletAim === 'straight'
+                    ? { ex: e.x, ey: e.y, px: e.x, py: e.y + 100 }
+                    : { ex: e.x, ey: e.y, px: this.player.x, py: this.player.y };
                 const shots = updateEnemyWeapon(
                     e.weaponState,
-                    { ex: e.x, ey: e.y, px: this.player.x, py: this.player.y },
+                    aimCtx,
                     dt,
                     wkey
                 );
