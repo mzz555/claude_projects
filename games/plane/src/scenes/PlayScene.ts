@@ -37,7 +37,6 @@ import { updateBossBehavior } from '../systems/BossBehavior.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { E } from '../events.js';
 import { debugParams } from '../debug/debugParams.js';
-import { DebugPanel } from '../debug/DebugPanel.js';
 
 export class PlayScene extends Phaser.Scene {
     private player!: Player;
@@ -67,7 +66,6 @@ export class PlayScene extends Phaser.Scene {
     private kills = 0;
     private scoreText!: Phaser.GameObjects.Text;
     private hpText!: Phaser.GameObjects.Text;
-    private debugPanel: DebugPanel | null = null;
 
     constructor() {
         super('play');
@@ -86,8 +84,6 @@ export class PlayScene extends Phaser.Scene {
             if (e.code === 'F1') {
                 e.preventDefault();
                 debugParams.showHitbox = !debugParams.showHitbox;
-                this.debugPanel?.unmount();
-                this.debugPanel?.mount();
             }
         };
         const onUp = (e: KeyboardEvent): void => {
@@ -96,15 +92,9 @@ export class PlayScene extends Phaser.Scene {
         window.addEventListener('keydown', onDown);
         window.addEventListener('keyup', onUp);
 
-        // 调参面板
-        this.debugPanel = new DebugPanel();
-        this.debugPanel.mount();
-
         this.events.once('shutdown', () => {
             window.removeEventListener('keydown', onDown);
             window.removeEventListener('keyup', onUp);
-            this.debugPanel?.unmount();
-            this.debugPanel = null;
         });
         const kbSource = { isKeyDown: (code: string): boolean => downKeys.has(code) };
 
