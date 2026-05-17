@@ -14,6 +14,9 @@ import { ChargeBehavior } from './ChargeBehavior.js';
 import { FlankBehavior } from './FlankBehavior.js';
 import { MirrorBehavior } from './MirrorBehavior.js';
 import { TornadoBehavior } from './TornadoBehavior.js';
+import { SCurveBehavior } from './SCurveBehavior.js';
+import { LoopBackBehavior } from './LoopBackBehavior.js';
+import { BezierPathBehavior } from './BezierPathBehavior.js';
 
 let registered = false;
 
@@ -36,6 +39,9 @@ export function registerAllBehaviors(): void {
     r.register('flank', () => new FlankBehavior());
     r.register('mirror', () => new MirrorBehavior());
     r.register('tornado', () => new TornadoBehavior());
+    r.register('s-curve', () => new SCurveBehavior());
+    r.register('loop-back', () => new LoopBackBehavior());
+    r.register('bezier-path', () => new BezierPathBehavior());
 }
 
 export { BehaviorRegistry } from './BehaviorRegistry.js';
