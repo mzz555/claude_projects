@@ -7,7 +7,18 @@ function makeFakeScene() {
     const cam = {
         shake: vi.fn()
     };
-    const emitter = { emitParticleAt: vi.fn() };
+    const emitter = {
+        emitParticleAt: vi.fn(),
+        explode: vi.fn(),
+        destroy: vi.fn()
+    };
+    const graphics = {
+        fillStyle: vi.fn().mockReturnThis(),
+        fillCircle: vi.fn().mockReturnThis(),
+        fillRect: vi.fn().mockReturnThis(),
+        generateTexture: vi.fn(),
+        destroy: vi.fn()
+    };
     const scene = {
         events: {
             on: vi.fn(
@@ -25,9 +36,17 @@ function makeFakeScene() {
             once: vi.fn()
         },
         textures: { exists: vi.fn(() => true) },
+        anims: {
+            exists: vi.fn(() => false),
+            create: vi.fn(),
+            generateFrameNumbers: vi.fn(() => [])
+        },
         add: {
             particles: vi.fn(() => emitter),
-            graphics: vi.fn()
+            graphics: vi.fn(() => graphics)
+        },
+        time: {
+            delayedCall: vi.fn()
         },
         cameras: { main: cam }
     };
@@ -53,7 +72,7 @@ describe('FxSystem 事件订阅', () => {
         const fk = makeFakeScene();
         new FxSystem(fk.scene as never);
         const fns = fk.listeners.get(E.PlayerHit);
-        fns![0]!({ damage: 5 });
+        fns![0]!({ damage: 5, x: 400, y: 600 });
         expect(fk.cam.shake).toHaveBeenCalled();
     });
 

@@ -19,6 +19,37 @@ export type EnemyTypeKey =
     | 'bomber'
     | 'carrier';
 
+export type HealthBarType = 'normal' | 'elite' | 'epic' | 'boss';
+
+export const HEALTH_BAR_TYPES: HealthBarType[] = ['normal', 'elite', 'epic', 'boss'];
+
+export const HEALTH_BAR_LABELS: Record<HealthBarType, string> = {
+    normal: '普通',
+    elite: '精英',
+    epic: '史诗',
+    boss: 'Boss'
+};
+
+export type BulletAimMode = 'aim' | 'straight';
+
+export const BULLET_AIM_MODES: BulletAimMode[] = ['aim', 'straight'];
+
+export const BULLET_AIM_LABELS: Record<BulletAimMode, string> = {
+    aim: '面向英雄机',
+    straight: '无方向（直下）'
+};
+
+export type TelegraphType = 'line-solid' | 'line-dash' | 'fan' | 'crosshair';
+
+export const TELEGRAPH_TYPES: TelegraphType[] = ['line-solid', 'line-dash', 'fan', 'crosshair'];
+
+export const TELEGRAPH_LABELS: Record<TelegraphType, string> = {
+    'line-solid': '单线（实）',
+    'line-dash': '单线（虚）',
+    'fan': '扇形多线',
+    'crosshair': '十字标记'
+};
+
 export interface BodyShape {
     /** 宽方向比例（1.0 = 紧贴 alpha 包围盒宽） */
     w: number;
@@ -26,12 +57,70 @@ export interface BodyShape {
     h: number;
 }
 
+/**
+ * 攻击 Step：可部分覆盖 EnemyOverride 的攻击相关字段。
+ * 留空（undefined）= 该字段沿用顶层 override / typeKey 默认。
+ * 即「step 只写差异部分」。
+ */
+export interface AttackStep {
+    /** 可选标签（UI 显示用） */
+    label?: string;
+    /** 这个 step 持续多久（ms）。到点强制切到下一 step（无论 telegraph 是否完成） */
+    durationMs: number;
+    /** step 后的静默间隔（ms）。0 = 无缝衔接下一 step */
+    gapMs: number;
+    /** 以下字段可选覆盖：留空走顶层 */
+    weaponKey?: string;
+    bulletTexture?: EnemyBulletTextureKey;
+    bulletAim?: BulletAimMode;
+    bulletSpeed?: number;
+    attackIntervalMs?: number;
+    telegraphEnabled?: boolean;
+    telegraphType?: TelegraphType;
+    telegraphMs?: number;
+}
+
+export interface AttackPattern {
+    steps: AttackStep[];
+    /** 走完最后一 step 是否回到 step 0；false 则停火 */
+    loop: boolean;
+}
+
 export interface EnemyOverride {
     behaviorId?: string;
+    bulletTexture?: EnemyBulletTextureKey;
+    /** 发射方式 key（来自 enemyWeapons.ts），用 string 避免循环 import */
+    weaponKey?: string;
+    bulletAim?: BulletAimMode;
+    /** 覆盖攻击间隔（ms），null/undefined 时用 weaponKey 默认 */
+    attackIntervalMs?: number;
+    /** 覆盖子弹速度（px/s），null/undefined 时用 weaponKey 默认 */
+    bulletSpeed?: number;
+    /** 是否启用预警线 */
+    telegraphEnabled?: boolean;
+    /** 预警线类型（默认 line-solid） */
+    telegraphType?: TelegraphType;
+    /** 预警时间 ms（默认 500） */
+    telegraphMs?: number;
+    healthBarType?: HealthBarType;
     hp?: number;
     score?: number;
     dmg?: number;
     vy?: number;
+    /** 显示宽度（绝对 px）。null/undefined 时用 t.w * enemyDisplayScale */
+    displayW?: number;
+    /** 显示高度（绝对 px）。null/undefined 时按贴图 aspect 跟随 displayW */
+    displayH?: number;
+    /** 命中框宽比例（相对 alpha 包围盒）。null/undefined 时用 enemyBodyRatio * perEnemyBodyRatio */
+    hitW?: number;
+    /** 命中框高比例 */
+    hitH?: number;
+    /** 多重攻击模式（启用后取代单 attack） */
+    attackPattern?: AttackPattern;
+    /** 是否启用 attackPattern（独立开关，让用户能临时关掉测试基础攻击） */
+    attackPatternEnabled?: boolean;
+    /** UI 当前编辑的 step index（仅 UI 状态，不影响运行时） */
+    attackPatternEditingIdx?: number;
 }
 
 export interface DebugParams {
@@ -49,6 +138,10 @@ export interface DebugParams {
     paused: boolean;
     /** 时间缩放（1.0 正常，0.25 慢放） */
     timeScale: number;
+    /** 启用粒子特效（M6-fix16 升级版 FxSystem） */
+    fxEnabled: boolean;
+    /** 特效强度倍率（同时缩放粒子数量和 scale） */
+    fxIntensity: number;
 }
 
 export const debugParams: DebugParams = {
@@ -74,7 +167,9 @@ export const debugParams: DebugParams = {
     enemyOverrides: {},
     selectedEnemyTypeKey: null,
     paused: false,
-    timeScale: 1.0
+    timeScale: 1.0,
+    fxEnabled: true,
+    fxIntensity: 1.0
 };
 
 export const ENEMY_TYPE_KEYS: EnemyTypeKey[] = [

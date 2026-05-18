@@ -4,14 +4,17 @@ import { Enemy, makeEnemyPool } from '../entities/Enemy.js';
 import { Player } from '../entities/Player.js';
 import { Bullet, makeBulletPool } from '../entities/Bullet.js';
 import { EnemyBullet, makeEnemyBulletPool } from '../entities/EnemyBullet.js';
-import { ENEMY_TYPE_KEYS, type EnemyTypeKey, debugParams } from '../debug/debugParams.js';
-import { ENEMY_TYPES } from '../data/enemyTypes.js';
+import { Powerup, makePowerupPool } from '../entities/Powerup.js';
+import { type EnemyTypeKey, debugParams } from '../debug/debugParams.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { WeaponSystem, type ShotSpec } from '../systems/WeaponSystem.js';
-import { PRIMARY } from '../data/weapons.js';
+import { updateEnemyWeapon } from '../systems/EnemyWeapon.js';
+import { FxSystem } from '../systems/FxSystem.js';
+import { applyEffect } from '../systems/PowerupSystem.js';
+import { PRIMARY, WEAPONS } from '../data/weapons.js';
+import { type PowerupKey } from '../data/powerups.js';
 import { E } from '../events.js';
 import { DebugPanel } from '../debug/DebugPanel.js';
-import { EnemyInspector } from '../debug/EnemyInspector.js';
 
 interface FixedSlot {
     typeKey: EnemyTypeKey;
@@ -19,16 +22,34 @@ interface FixedSlot {
     y: number;
 }
 
+interface PowerupLayoutItem {
+    key: PowerupKey;
+    x: number;
+    y: number;
+}
+
+/** 测试场固定 powerup 位置（5 个，横向一排靠下，玩家上方 ~120px） */
+const POWERUP_LAYOUT: PowerupLayoutItem[] = [
+    { key: 'power',  x: PLAY_AREA.x + PLAY_AREA.w * 0.10, y: PLAY_AREA.y + PLAY_AREA.h - 200 },
+    { key: 'shield', x: PLAY_AREA.x + PLAY_AREA.w * 0.30, y: PLAY_AREA.y + PLAY_AREA.h - 200 },
+    { key: 'ally',   x: PLAY_AREA.x + PLAY_AREA.w * 0.50, y: PLAY_AREA.y + PLAY_AREA.h - 200 },
+    { key: 'hp',     x: PLAY_AREA.x + PLAY_AREA.w * 0.70, y: PLAY_AREA.y + PLAY_AREA.h - 200 },
+    { key: 'speed',  x: PLAY_AREA.x + PLAY_AREA.w * 0.90, y: PLAY_AREA.y + PLAY_AREA.h - 200 }
+];
+
+const POWERUP_RESPAWN_MS = 2000;
+
 export class TestScene extends Phaser.Scene {
     private player!: Player;
     private bullets!: Phaser.Physics.Arcade.Group;
     private enemies!: Phaser.Physics.Arcade.Group;
     private enemyBullets!: Phaser.Physics.Arcade.Group;
+    private powerups!: Phaser.Physics.Arcade.Group;
+    private powerupRespawnQueue: { layoutIdx: number; dueAt: number }[] = [];
     private weapon = new WeaponSystem();
     private slots: FixedSlot[] = [];
     private respawnQueue: { slotIdx: number; dueAt: number }[] = [];
     private debugPanel: DebugPanel | null = null;
-    private inspector: EnemyInspector | null = null;
     private toolbar: HTMLDivElement | null = null;
     private trailGfx!: Phaser.GameObjects.Graphics;
     private trailHistory: Phaser.Math.Vector2[] = [];
@@ -48,7 +69,14 @@ export class TestScene extends Phaser.Scene {
         this.physics.world.timeScale = 1.0;
 
         const downKeys = new Set<string>();
-        const onDown = (e: KeyboardEvent): void => { downKeys.add(e.code); };
+        const onDown = (e: KeyboardEvent): void => {
+            downKeys.add(e.code);
+            if (e.code === 'F1') {
+                e.preventDefault();
+                debugParams.showHitbox = !debugParams.showHitbox;
+                this.debugPanel?.render();
+            }
+        };
         const onUp = (e: KeyboardEvent): void => { downKeys.delete(e.code); };
         window.addEventListener('keydown', onDown);
         window.addEventListener('keyup', onUp);
@@ -57,10 +85,8 @@ export class TestScene extends Phaser.Scene {
             window.removeEventListener('keyup', onUp);
             this.events.off(E.EnemyKilled);
             this.debugPanel?.unmount();
-            this.inspector?.unmount();
             this.toolbar?.remove();
             this.debugPanel = null;
-            this.inspector = null;
             this.toolbar = null;
         });
         const kbSource = { isKeyDown: (code: string): boolean => downKeys.has(code) };
@@ -69,40 +95,49 @@ export class TestScene extends Phaser.Scene {
         this.bullets = makeBulletPool(this, 256);
         this.enemies = makeEnemyPool(this, 16);
         this.enemyBullets = makeEnemyBulletPool(this, 128);
+        this.powerups = makePowerupPool(this, POWERUP_LAYOUT.length);
 
-        // 7 架横向布局（顶部 1/3 位置）
-        const margin = 100;
-        const usableW = PLAY_AREA.w - margin * 2;
-        const stepX = usableW / (ENEMY_TYPE_KEYS.length - 1);
-        const rowY = PLAY_AREA.y + 140;
-        ENEMY_TYPE_KEYS.forEach((typeKey, i) => {
-            this.slots.push({ typeKey, x: PLAY_AREA.x + margin + stepX * i, y: rowY });
+        // 1 对 1 模式：场上只有 1 架敌机，类型完全由调参面板"敌机类别"下拉控制
+        this.slots.push({
+            typeKey: 'scout',
+            x: PLAY_AREA.x + PLAY_AREA.w / 2,
+            y: PLAY_AREA.y + 180
         });
-        this.slots.forEach((_, i) => this.spawnSlot(i));
-
-        // 中文名 label
-        this.slots.forEach((slot) => {
-            this.add.text(slot.x, slot.y + 60, ENEMY_TYPES[slot.typeKey].label, {
-                fontFamily: PLANE_THEME.fontFamily,
-                fontSize: '12px',
-                color: '#ffaa00'
-            }).setOrigin(0.5);
-        });
+        // spawn 放到 DebugPanel mount 之后，这样 spawnSlot 里 selectEnemy 才能生效
 
         new CollisionSystem({
             scene: this,
             player: this.player,
             enemies: this.enemies,
             bullets: this.bullets,
-            powerups: this.physics.add.group(),  // 测试场不用 powerup
+            powerups: this.powerups,
             meteors: this.physics.add.group(),
-            onPowerupPicked: () => {}
+            onPowerupPicked: (key) => this.handlePowerupPicked(key),
+            // 测试场：玩家从敌机身上穿过去，不触发反应（敌机不能因为撞机消失，否则没法继续观察）
+            disablePlayerEnemyCollision: true
         });
 
-        // 监听 EnemyKilled → 排入 1 秒后复活队列
-        this.events.on(E.EnemyKilled, (p: { x: number; y: number }) => {
-            const idx = this.findSlotIndexByPos(p.x, p.y);
-            if (idx >= 0) this.respawnQueue.push({ slotIdx: idx, dueAt: this.time.now + 1000 });
+        // spawn 5 个固定位置 powerup
+        for (let i = 0; i < POWERUP_LAYOUT.length; i++) this.spawnFixedPowerup(i);
+
+        // 玩家被敌机子弹击中：子弹失效 + 发 PlayerHit（不扣血，但让 FxSystem 演特效）
+        this.physics.add.overlap(this.player, this.enemyBullets, (_p, b) => {
+            const bullet = b as EnemyBullet;
+            if (!bullet.active) return;
+            bullet.deactivate();
+            this.events.emit(E.PlayerHit, {
+                damage: 0,
+                x: this.player.x,
+                y: this.player.y
+            });
+        });
+
+        // 测试场也加 FxSystem（看升级版特效）
+        new FxSystem(this);
+
+        // 监听 EnemyKilled → 排入 1 秒后复活（1 对 1 模式恒为 slot 0）
+        this.events.on(E.EnemyKilled, () => {
+            this.respawnQueue.push({ slotIdx: 0, dueAt: this.time.now + 1000 });
         });
 
         // 轨迹图层
@@ -112,24 +147,30 @@ export class TestScene extends Phaser.Scene {
         // 调参 UI
         this.debugPanel = new DebugPanel();
         this.debugPanel.mount();
-        this.inspector = new EnemyInspector();
-        this.inspector.mount();
+        this.debugPanel.onSwapTypeKey = (i, k) => this.swapSlotTypeKey(i, k);
+        this.debugPanel.resolveSlotIdx = () => 0;  // 1 对 1 模式恒为 slot 0
         this.toolbar = this.makeToolbar();
 
-        // 敌机可点击：点击 → 选中
+        // 现在 DebugPanel 已 mount，spawn 那架敌机（spawnSlot 内部会 selectEnemy）
+        this.spawnSlot(0);
+
+        // 敌机可点击：点击 → 选中（1 对 1 模式下只一架，自动选中后这个仍可用）
         this.input.on('gameobjectdown', (_pointer: unknown, obj: Phaser.GameObjects.GameObject) => {
-            if (obj instanceof Enemy) this.inspector?.select(obj);
-        });
-        // 让每架现有敌机和将来 spawn 的敌机都可交互
-        this.enemies.children.iterate((obj) => {
-            (obj as Enemy).setInteractive();
-            return null;
+            if (obj instanceof Enemy) this.debugPanel?.selectEnemy(obj);
         });
 
     }
 
     override update(_time: number, delta: number): void {
-        this.inspector?.tick();
+        this.debugPanel?.tick();
+
+        // 同步命中框可视化（F1 / checkbox 切换 → physics 引擎）
+        const world = this.physics.world;
+        if (debugParams.showHitbox && !world.debugGraphic) {
+            world.createDebugGraphic();
+        }
+        world.drawDebug = debugParams.showHitbox;
+        if (world.debugGraphic) world.debugGraphic.setVisible(debugParams.showHitbox);
 
         // 暂停：DOM 面板仍可交互
         if (debugParams.paused) return;
@@ -143,6 +184,55 @@ export class TestScene extends Phaser.Scene {
             const e = obj as Enemy;
             if (!e.active) return null;
             e.behavior?.update(dt, this.player.x);
+            e.updateHealthBar();
+
+            // 攻击 pattern 推进：启用时拿 activeStep，决定是否开火 + 用哪套参数
+            const patternActive = e.isAttackPatternActive();
+            const activeStep = patternActive ? e.advancePattern(dt) : null;
+            const canFire = !patternActive || activeStep !== null;
+            const eff = e.getEffectiveAttackParams(activeStep);
+
+            // 敌机开火（测试场固定在屏内，PlayScene 的"进入屏幕后才开"条件天然满足）
+            // 预警进行中：跳过 updateEnemyWeapon 推进，等延迟结束再发
+            if (canFire && eff.weaponKey && !e.hasPendingTelegraph()) {
+                // bulletAim='straight' 时把 px/py 设为正下方一点，让 aimDirection 返回 (0, 1)
+                const aimCtx = eff.bulletAim === 'straight'
+                    ? { ex: e.x, ey: e.y, px: e.x, py: e.y + 100 }
+                    : { ex: e.x, ey: e.y, px: this.player.x, py: this.player.y };
+                const shots = updateEnemyWeapon(
+                    e.weaponState,
+                    aimCtx,
+                    dt,
+                    eff.weaponKey as import('../data/enemyWeapons.js').EnemyWeaponKey,
+                    eff.attackIntervalMs ?? undefined,
+                    eff.bulletSpeed ?? undefined
+                );
+                if (shots.length > 0) {
+                    if (eff.telegraphEnabled) {
+                        e.startTelegraph(
+                            shots, this.player.x, this.player.y, this.time.now,
+                            eff.telegraphMs, eff.telegraphType
+                        );
+                    } else {
+                        this.fireEnemyShots(e, shots, eff.bulletTextureKey);
+                    }
+                }
+            }
+            // 推进预警：到点取出 shots 真发射
+            const due = e.updateTelegraph(this.time.now);
+            if (due) this.fireEnemyShots(e, due);
+            return null;
+        });
+
+        // 敌机子弹超出屏幕回收
+        this.enemyBullets.children.iterate((b) => {
+            (b as EnemyBullet).recycleIfOffscreen(PLAY_AREA.y, PLAY_AREA.y + PLAY_AREA.h);
+            return null;
+        });
+
+        // 玩家子弹超出屏幕回收（M6-fix17 修复：之前漏了这段，导致 32s 后子弹池耗尽，玩家停射）
+        this.bullets.children.iterate((b) => {
+            (b as Bullet).recycleIfOffscreen(PLAY_AREA.y);
             return null;
         });
 
@@ -151,6 +241,14 @@ export class TestScene extends Phaser.Scene {
         while (this.respawnQueue.length > 0 && this.respawnQueue[0]!.dueAt <= now) {
             const { slotIdx } = this.respawnQueue.shift()!;
             this.spawnSlot(slotIdx);
+        }
+
+        // powerup 复活
+        for (let i = this.powerupRespawnQueue.length - 1; i >= 0; i--) {
+            if (this.powerupRespawnQueue[i]!.dueAt <= now) {
+                const { layoutIdx } = this.powerupRespawnQueue.splice(i, 1)[0]!;
+                this.spawnFixedPowerup(layoutIdx);
+            }
         }
 
         // 轨迹可视化
@@ -189,15 +287,79 @@ export class TestScene extends Phaser.Scene {
         if (!e) return;
         e.spawn({ x: slot.x, y: slot.y, typeKey: slot.typeKey, vy: 0 });
         e.setInteractive();
+        // 1 对 1 模式：复活后自动选中，让 DebugPanel 跟着这架走
+        this.debugPanel?.selectEnemy(e);
     }
 
-    private findSlotIndexByPos(x: number, y: number): number {
-        // 半径 80px 内
-        for (let i = 0; i < this.slots.length; i++) {
-            const s = this.slots[i]!;
-            if (Math.hypot(s.x - x, s.y - y) < 80) return i;
+    swapSlotTypeKey(slotIdx: number, newKey: EnemyTypeKey): void {
+        const slot = this.slots[slotIdx];
+        if (!slot) return;
+        slot.typeKey = newKey;
+        // 1 对 1 模式：所有 active enemy（其实只 1 架）都跟着切
+        this.enemies.children.iterate((obj) => {
+            const e = obj as Enemy;
+            if (e.active) e.setTypeKey(newKey);
+            return null;
+        });
+    }
+
+    /** 在固定位置生成 powerup（静止悬浮，不下落） */
+    private spawnFixedPowerup(idx: number): void {
+        const item = POWERUP_LAYOUT[idx];
+        if (!item) return;
+        const p = this.powerups.get() as Powerup | null;
+        if (!p) return;
+        const args: { x: number; y: number; key: PowerupKey; nextLevel?: number } = {
+            x: item.x, y: item.y, key: item.key
+        };
+        if (item.key === 'power') {
+            const lvl = this.weapon.getLevel();
+            args.nextLevel = lvl >= WEAPONS.length - 1 ? 6 : lvl + 1;
         }
-        return -1;
+        p.spawn(args);
+        p.setVelocity(0, 0);  // 覆盖 Powerup.spawn 内的 vy=80，让它静止悬浮
+    }
+
+    /** 测试场拾取处理：调 applyEffect 真升级 + 排入 2 秒复活队列 */
+    private handlePowerupPicked(key: PowerupKey): void {
+        applyEffect(key, {
+            weapon: {
+                getLevel: () => this.weapon.getLevel(),
+                setLevel: (lvl) => this.weapon.setLevel(lvl),
+                enterOverdrive: () => this.weapon.enterOverdrive(),
+                maxLevel: WEAPONS.length - 1
+            },
+            player: {
+                activateShield: (ms) => this.player.activateShield(ms),
+                heal: (n) => this.player.heal(n),
+                activateSpeedBoost: (ms) => this.player.activateSpeedBoost(ms)
+            },
+            addAllyCharge: () => {}  // 测试场无 allySystem，noop
+        });
+        const layoutIdx = POWERUP_LAYOUT.findIndex((it) => it.key === key);
+        if (layoutIdx >= 0) {
+            this.powerupRespawnQueue.push({ layoutIdx, dueAt: this.time.now + POWERUP_RESPAWN_MS });
+        }
+    }
+
+    private fireEnemyShots(
+        e: Enemy,
+        shots: import('../systems/EnemyWeapon.js').EnemyShotSpec[],
+        textureKey?: string
+    ): void {
+        const bulletTexture = textureKey ?? e.bulletTextureKey;
+        for (const s of shots) {
+            const eb = this.enemyBullets.get() as EnemyBullet | null;
+            if (!eb) continue;
+            eb.fire({
+                x: e.x + s.ox,
+                y: e.y + s.oy,
+                vx: s.vx,
+                vy: s.vy,
+                damage: s.damage,
+                texture: bulletTexture
+            });
+        }
     }
 
     private fireSpec(spec: ShotSpec): void {

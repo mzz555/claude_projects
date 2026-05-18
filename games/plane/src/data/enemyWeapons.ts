@@ -1,5 +1,15 @@
 export type EnemyWeaponKey = 'single' | 'double' | 'rapid' | 'fan' | 'barrage';
 
+export const ENEMY_WEAPON_KEYS: EnemyWeaponKey[] = ['single', 'double', 'rapid', 'fan', 'barrage'];
+
+export const ENEMY_WEAPON_LABELS: Record<EnemyWeaponKey, string> = {
+    single: '单发',
+    double: '三连扇',
+    rapid: '连射',
+    fan: '7 联扇',
+    barrage: '弹幕'
+};
+
 export interface EnemyWeapon {
     intervalMs: number;
     pelletsPerShot: number;

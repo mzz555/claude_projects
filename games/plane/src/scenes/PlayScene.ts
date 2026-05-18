@@ -15,7 +15,6 @@ import { MeteorDirector, METEOR_DROP_RATE } from '../systems/MeteorDirector.js';
 import { FxSystem } from '../systems/FxSystem.js';
 import { MarbleSpawner } from '../systems/MarbleSpawner.js';
 import { MarblePanel } from '../entities/MarblePanel.js';
-import { ENEMY_WEAPON_MAP } from '../data/enemyWeapons.js';
 import { SFX } from '../data/sfxKeys.js';
 import { SfxBank } from '../audio/sfxBank.js';
 import {
@@ -148,7 +147,11 @@ export class PlayScene extends Phaser.Scene {
             if (!bullet.active) return;
             bullet.deactivate();
             if (!this.player.isShielded()) {
-                this.events.emit(E.PlayerHit, { damage: bullet.damage });
+                this.events.emit(E.PlayerHit, {
+                    damage: bullet.damage,
+                    x: this.player.x,
+                    y: this.player.y
+                });
             }
         });
 
@@ -208,7 +211,7 @@ export class PlayScene extends Phaser.Scene {
             }
         );
 
-        this.events.on(E.PlayerHit, (p: { damage: number }) => {
+        this.events.on(E.PlayerHit, (p: { damage: number; x: number; y: number }) => {
             this.player.hp = Math.max(0, this.player.hp - p.damage);
             this.refreshHud();
             if (this.player.hp <= 0) {
@@ -277,6 +280,7 @@ export class PlayScene extends Phaser.Scene {
             const e = obj as Enemy;
             if (!e.active) return null;
             e.behavior?.update(delta, pX);
+            e.updateHealthBar();
             if (!e.confronting && shouldConfront(e.typeKey, e.y, this.player.y)) {
                 e.confronting = true;
             }
@@ -298,28 +302,39 @@ export class PlayScene extends Phaser.Scene {
             }
             // 敌机开火（进入屏幕后才开）
             if (e.y > PLAY_AREA.y) {
-                const wkey = ENEMY_WEAPON_MAP[e.typeKey];
-                if (wkey) {
+                // 攻击 pattern 推进：启用时拿 activeStep，决定是否开火 + 用哪套参数
+                const patternActive = e.isAttackPatternActive();
+                const activeStep = patternActive ? e.advancePattern(delta) : null;
+                const canFire = !patternActive || activeStep !== null;
+                const eff = e.getEffectiveAttackParams(activeStep);
+
+                // 预警进行中：跳过 updateEnemyWeapon 推进，等延迟结束再发
+                if (canFire && eff.weaponKey && !e.hasPendingTelegraph()) {
+                    const aimCtx = eff.bulletAim === 'straight'
+                        ? { ex: e.x, ey: e.y, px: e.x, py: e.y + 100 }
+                        : { ex: e.x, ey: e.y, px: this.player.x, py: this.player.y };
                     const shots = updateEnemyWeapon(
                         e.weaponState,
-                        { ex: e.x, ey: e.y, px: this.player.x, py: this.player.y },
+                        aimCtx,
                         delta,
-                        wkey
+                        eff.weaponKey as import('../data/enemyWeapons.js').EnemyWeaponKey,
+                        eff.attackIntervalMs ?? undefined,
+                        eff.bulletSpeed ?? undefined
                     );
-                    const bulletTexture = ENEMY_TYPES[e.typeKey].bulletTexture;
-                    for (const s of shots) {
-                        const eb = this.enemyBullets.get() as EnemyBullet | null;
-                        if (!eb) continue;
-                        eb.fire({
-                            x: e.x + s.ox,
-                            y: e.y + s.oy,
-                            vx: s.vx,
-                            vy: s.vy,
-                            damage: s.damage,
-                            texture: bulletTexture
-                        });
+                    if (shots.length > 0) {
+                        if (eff.telegraphEnabled) {
+                            e.startTelegraph(
+                                shots, this.player.x, this.player.y, this.time.now,
+                                eff.telegraphMs, eff.telegraphType
+                            );
+                        } else {
+                            this.fireEnemyShots(e, shots, eff.bulletTextureKey);
+                        }
                     }
                 }
+                // 推进预警：到点取出 shots 真发射
+                const due = e.updateTelegraph(this.time.now);
+                if (due) this.fireEnemyShots(e, due);
             }
             e.recycleIfOffscreen(PLAY_AREA.y + PLAY_AREA.h);
             return null;
@@ -419,8 +434,32 @@ export class PlayScene extends Phaser.Scene {
         this.fields.push(field);
         this.physics.add.overlap(this.player, field, () => {
             if (this.player.isShielded()) return;
-            this.events.emit(E.PlayerHit, { damage: field.getData('damage') as number });
+            this.events.emit(E.PlayerHit, {
+                damage: field.getData('damage') as number,
+                x: this.player.x,
+                y: this.player.y
+            });
         });
+    }
+
+    private fireEnemyShots(
+        e: Enemy,
+        shots: import('../systems/EnemyWeapon.js').EnemyShotSpec[],
+        textureKey?: string
+    ): void {
+        const bulletTexture = textureKey ?? e.bulletTextureKey;
+        for (const s of shots) {
+            const eb = this.enemyBullets.get() as EnemyBullet | null;
+            if (!eb) continue;
+            eb.fire({
+                x: e.x + s.ox,
+                y: e.y + s.oy,
+                vx: s.vx,
+                vy: s.vy,
+                damage: s.damage,
+                texture: bulletTexture
+            });
+        }
     }
 
     private fireSpec(spec: ShotSpec): void {

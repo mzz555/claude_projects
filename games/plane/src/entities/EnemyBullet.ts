@@ -27,6 +27,8 @@ export class EnemyBullet extends Phaser.Physics.Arcade.Image {
         this.body!.enable = true;
         this.setPosition(args.x, args.y);
         this.setVelocity(args.vx, args.vy);
+        // 贴图自然朝下（PI/2），rotation = atan2(vy,vx) - PI/2 让子弹"头"指向 velocity 方向
+        this.setRotation(Math.atan2(args.vy, args.vx) - Math.PI / 2);
         this.damage = args.damage;
         if (this.scene.textures.exists(args.texture)) {
             this.setTexture(args.texture);
