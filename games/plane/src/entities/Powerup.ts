@@ -163,12 +163,15 @@ export class Powerup extends Phaser.Physics.Arcade.Image {
         this.powerupKey = args.key;
         this.setActive(true);
         this.setVisible(true);
-        this.body!.enable = true;
+        const body = this.body as Phaser.Physics.Arcade.Body;
+        body.enable = true;
         const tk = powerupTextureKey(args.key, args.nextLevel);
         if (this.texture.key !== tk) this.setTexture(tk);
         this.clearTint();
         this.setScale(BASE_SCALE);
         this.setRotation(0);
+        // 关键：body 逻辑尺寸跟贴图源对齐（默认 placeholder 是 1×1，scale 0.44 会让碰撞框塌成 0.44px）
+        body.setSize(TEX_SIZE, TEX_SIZE);
         this.setPosition(args.x, args.y);
         this.setVelocity(0, 80);
         this.floatPhase = Math.random() * Math.PI * 2;
