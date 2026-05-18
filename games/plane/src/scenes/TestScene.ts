@@ -8,7 +8,7 @@ import { Powerup, makePowerupPool } from '../entities/Powerup.js';
 import { type EnemyTypeKey, debugParams } from '../debug/debugParams.js';
 import { CollisionSystem } from '../systems/CollisionSystem.js';
 import { WeaponSystem, type ShotSpec } from '../systems/WeaponSystem.js';
-import { HERO_BULLET_TEXTURE } from '../data/heroBulletTextures.js';
+import { pickHeroBulletTexture } from '../data/heroBulletTextures.js';
 import { updateEnemyWeapon } from '../systems/EnemyWeapon.js';
 import { FxSystem } from '../systems/FxSystem.js';
 import { applyEffect } from '../systems/PowerupSystem.js';
@@ -378,7 +378,7 @@ export class TestScene extends Phaser.Scene {
             vx: spec.vx ?? 0,
             vy: spec.vy ?? -600,
             damage: spec.damage ?? PRIMARY.damage,
-            texture: HERO_BULLET_TEXTURE[spec.layer]
+            texture: pickHeroBulletTexture(spec.layer, this.weapon.isOverdrive())
         };
         if (spec.color !== undefined) args.color = spec.color;
         bullet.fire(args);
