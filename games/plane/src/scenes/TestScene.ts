@@ -236,6 +236,12 @@ export class TestScene extends Phaser.Scene {
             return null;
         });
 
+        // 道具脉冲 / 旋转动画
+        this.powerups.children.iterate((p) => {
+            (p as Powerup).floatUpdate(delta);
+            return null;
+        });
+
         // 复活
         const now = this.time.now;
         while (this.respawnQueue.length > 0 && this.respawnQueue[0]!.dueAt <= now) {
