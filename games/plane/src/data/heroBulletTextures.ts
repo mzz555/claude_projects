@@ -1,0 +1,17 @@
+import type { ShotLayer } from '../systems/WeaponSystem.js';
+
+/**
+ * 英雄机子弹层 → 贴图 key 映射。颜色匹配 weapons.ts 各层 color：
+ *   primary  青   → cyan-laser-needle
+ *   spread   绿   → emerald-zigzag-ion
+ *   swarm    黄   → amber-energy-spear
+ *   tracker  红   → red-orange-light-bolt（实际走 Tracker entity，此处保留以备 Bullet 路径切回）
+ *
+ * 备用未映射：amber-wedge / blue-spiral（用于未来超频特殊态或调参手动切换）
+ */
+export const HERO_BULLET_TEXTURE: Record<ShotLayer, string> = {
+    primary: 'bullet-hero-cyan-needle',
+    spread: 'bullet-hero-emerald-zigzag',
+    swarm: 'bullet-hero-amber-spear',
+    tracker: 'bullet-hero-red-bolt'
+};

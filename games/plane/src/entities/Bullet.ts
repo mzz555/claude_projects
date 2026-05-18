@@ -7,7 +7,12 @@ export interface BulletSpawnArgs {
     vy: number;
     damage: number;
     color?: number;
+    /** 可选贴图 key；若提供且与默认 bullet-hero 不同，会切贴图并清 tint（新光弹素材已自带色彩） */
+    texture?: string;
 }
+
+const BULLET_TARGET_H = 40;
+const BULLET_FALLBACK_W = 10;
 
 export class Bullet extends Phaser.Physics.Arcade.Image {
     damage = 0;
@@ -25,11 +30,27 @@ export class Bullet extends Phaser.Physics.Arcade.Image {
         this.setPosition(args.x, args.y);
         this.setVelocity(args.vx, args.vy);
         this.damage = args.damage;
-        // 主炮（青色 0x7df9ff）用本色贴图；副炮/蜂群等用 color tint
-        const color = args.color ?? 0x7df9ff;
-        if (color === 0x7df9ff) this.clearTint();
-        else this.setTint(color);
-        this.setDisplaySize(10, 40);
+        const tk = args.texture ?? 'bullet-hero';
+        const usingCustomTexture = tk !== 'bullet-hero';
+        if (this.texture.key !== tk) {
+            this.setTexture(tk);
+            // body sourceWidth/Height 不会自动跟随新 frame，需显式同步避免 realSize 与 displaySize 错位
+            (this.body as Phaser.Physics.Arcade.Body).setSize(this.frame.width, this.frame.height);
+        }
+        if (usingCustomTexture) {
+            // 新贴图已自带色彩，不染色；高度固定 40，宽度按原图比例缩放
+            this.clearTint();
+            const fw = this.frame.width;
+            const fh = this.frame.height;
+            const w = fh > 0 ? BULLET_TARGET_H * (fw / fh) : BULLET_FALLBACK_W;
+            this.setDisplaySize(w, BULLET_TARGET_H);
+        } else {
+            // 旧 bullet-hero 通路：主炮本色 / 副炮蜂群染色
+            const color = args.color ?? 0x7df9ff;
+            if (color === 0x7df9ff) this.clearTint();
+            else this.setTint(color);
+            this.setDisplaySize(BULLET_FALLBACK_W, BULLET_TARGET_H);
+        }
     }
 
     deactivate(): void {

@@ -25,6 +25,7 @@ import {
     type PlayerNeeds
 } from '../systems/PowerupSystem.js';
 import { WeaponSystem, type BeamState, type ShotSpec } from '../systems/WeaponSystem.js';
+import { HERO_BULLET_TEXTURE } from '../data/heroBulletTextures.js';
 import { WEAPONS, MAX_LEVEL } from '../data/weapons.js';
 import { ENEMY_TYPES, type EnemyTypeKey } from '../data/enemyTypes.js';
 import type { PowerupKey } from '../data/powerups.js';
@@ -472,7 +473,8 @@ export class PlayScene extends Phaser.Scene {
                 vx: spec.vx,
                 vy: spec.vy,
                 damage: spec.damage,
-                color: spec.color ?? 0x7df9ff
+                color: spec.color ?? 0x7df9ff,
+                texture: HERO_BULLET_TEXTURE[spec.layer]
             });
         } else if (spec.kind === 'tracker') {
             const tracker = this.trackers.get() as Tracker | null;
